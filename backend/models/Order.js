@@ -117,7 +117,7 @@ orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ orderStatus: 1 });
 orderSchema.index({ table: 1, paymentStatus: 1 });
 orderSchema.index({ cashier: 1 });
-orderSchema.index({ orderId: 1 });
+// orderSchema.index({ orderId: 1 });
 orderSchema.index({ paymentMethod: 1, createdAt: -1 });
 
 // Compound index for dashboard queries

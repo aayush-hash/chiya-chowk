@@ -111,7 +111,8 @@ app.use('/api/tables', tableRoutes);
 app.use('/api/users', userRoutes);
 
 // ===== 404 HANDLER =====
-app.use('*', (req, res) => {
+// ===== 404 HANDLER =====
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found`,

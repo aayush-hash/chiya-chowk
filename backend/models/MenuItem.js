@@ -78,4 +78,8 @@ menuItemSchema.index({ category: 1, isAvailable: 1, isDeleted: 1 });
 menuItemSchema.index({ name: 'text', description: 'text' });
 menuItemSchema.index({ soldCount: -1 });
 
-module.exports = mongoose.model('MenuItem', menuItemSchema);
+const MenuItem =
+  mongoose.models.MenuItem ||
+  mongoose.model('MenuItem', menuItemSchema);
+
+module.exports = MenuItem;

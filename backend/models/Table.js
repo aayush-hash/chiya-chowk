@@ -52,6 +52,6 @@ const tableSchema = new mongoose.Schema({
 });
 
 tableSchema.index({ status: 1, isActive: 1 });
-tableSchema.index({ number: 1 });
+// tableSchema.index({ number: 1 });
 
 module.exports = mongoose.model('Table', tableSchema);
