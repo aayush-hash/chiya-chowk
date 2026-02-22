@@ -12,7 +12,16 @@ const seed = async () => {
     console.log('🌱 Connected to MongoDB for seeding...');
 
     // Clear existing data
-    await Promise.all([User.deleteMany(), MenuItem.deleteMany(), Table.deleteMany(), Settings.deleteMany()]);
+    await Promise.all([
+      User.deleteMany(),
+      MenuItem.deleteMany(),
+      Table.deleteMany(),
+      Settings.deleteMany(),
+      Order.deleteMany(),
+    ]);
+
+    // Drop all indexes on orders to avoid stale unique constraints
+    await mongoose.connection.collection('orders').dropIndexes();
     console.log('🗑️  Cleared existing data');
 
     // Create users
@@ -93,7 +102,15 @@ const seed = async () => {
         const qty = Math.floor(Math.random() * 3) + 1;
         const itemSub = mi.price * qty;
         subtotal += itemSub;
-        orderItems.push({ menuItem: mi._id, name: mi.name, emoji: mi.emoji, category: mi.category, price: mi.price, qty, subtotal: itemSub });
+        orderItems.push({
+          menuItem: mi._id,
+          name: mi.name,
+          emoji: mi.emoji,
+          category: mi.category,
+          price: mi.price,
+          qty,
+          subtotal: itemSub,
+        });
       }
 
       const taxAmount = Math.round(subtotal * 0.13);
@@ -102,11 +119,17 @@ const seed = async () => {
       const method = Math.random() > 0.4 ? 'cash' : 'qr';
 
       sampleOrders.push({
+        orderId: `ORD-${String(i + 1001).padStart(4, '0')}`,
         table: tables[Math.floor(Math.random() * tables.length)]._id,
         tableNumber: Math.floor(Math.random() * 12) + 1,
         orderType: 'dine-in',
         items: orderItems,
-        subtotal, discount: 0, taxRate: 13, taxAmount, serviceCharge: 0, total,
+        subtotal,
+        discount: 0,
+        taxRate: 13,
+        taxAmount,
+        serviceCharge: 0,
+        total,
         paymentMethod: isPaid ? method : 'pending',
         paymentStatus: isPaid ? 'paid' : 'unpaid',
         orderStatus: isPaid ? 'completed' : 'pending',
@@ -118,7 +141,7 @@ const seed = async () => {
       });
     }
 
-    await Order.insertMany(sampleOrders);
+    await Order.insertMany(sampleOrders, { timestamps: false });
     console.log('📋 30 Sample orders seeded');
 
     console.log('\n✅ Database seeded successfully!');

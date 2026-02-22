@@ -94,7 +94,8 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Auto-generate orderId before save
-orderSchema.pre('save', async function (next) {
+// Auto-generate orderId before save
+orderSchema.pre('save', async function () {
   if (!this.orderId) {
     const count = await mongoose.model('Order').countDocuments();
     this.orderId = `ORD-${String(count + 1001).padStart(4, '0')}`;
@@ -103,7 +104,6 @@ orderSchema.pre('save', async function (next) {
   this.items.forEach(item => {
     item.subtotal = item.price * item.qty;
   });
-  next();
 });
 
 // Virtual: profit (if cost data available)
