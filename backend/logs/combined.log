@@ -86,3 +86,28 @@
 {"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-02-22 11:16:54"}
 {"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-02-22 11:16:59"}
 {"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-02-22 11:18:13"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-02-22 11:24:56"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-02-22 11:24:56"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-02-22 11:24:59"}
+{"level":"info","message":"User logged out: admin","service":"chiya-chowk-api","timestamp":"2026-02-22 11:26:21"}
+{"level":"info","message":"User logged in: staff (staff)","service":"chiya-chowk-api","timestamp":"2026-02-22 11:26:39"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-02-22 11:53:36"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-02-22 11:53:36"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-02-22 11:53:42"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-02-22 20:51:09"}
+{"level":"info","message":"MongoDB reconnected","service":"chiya-chowk-api","timestamp":"2026-02-22 20:51:28"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-02-22 21:01:28"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-02-22 21:01:36"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-02-22 21:01:36"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-02-22 22:47:03"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-02-22 22:47:11"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-02-22 22:47:11"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-02-23 14:47:48"}
+{"level":"info","message":"MongoDB reconnected","service":"chiya-chowk-api","timestamp":"2026-02-24 16:16:40"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-02-24 16:22:07"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-02-24 16:22:07"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-02-28 15:15:05"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-02-28 15:15:08"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-02 09:40:58"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-02 09:40:58"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-03-02 09:41:50"}

@@ -9,6 +9,8 @@ const PAGE_META = {
   '/menu': { title: 'Menu Management', crumb: 'Management → Menu Items' },
   '/reports': { title: 'Sales Reports', crumb: 'Analytics → Sales Reports' },
   '/transactions': { title: 'Transactions', crumb: 'Finance → Daily Transactions' },
+  '/inventory': { title: 'Inventory', crumb: 'Management → Stock & Ingredients' },
+  '/kitchen': { title: 'Kitchen & QR Orders', crumb: 'Operations → Live Order Board' },
   '/admin': { title: 'Admin Panel', crumb: 'Settings → Control Panel' },
 };
 

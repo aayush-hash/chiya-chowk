@@ -10,6 +10,9 @@ import POSPage from './pages/POSPage';
 import { TablesPage, OrdersPage } from './pages/TablesOrdersPage';
 import MenuPage from './pages/MenuPage';
 import { ReportsPage, AdminPage, TransactionsPage } from './pages/ReportsAdminPage';
+import InventoryPage from './pages/InventoryPage';
+import QRMenuPage from './pages/QRMenuPage';
+import KitchenPage from './pages/KitchenPage';
 import './styles/globals.css';
 
 const ProtectedRoute = ({ children, roles }) => {
@@ -37,6 +40,8 @@ const AppLayout = () => {
             <Route path="/menu" element={<ProtectedRoute roles={['admin', 'manager']}><MenuPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute roles={['admin', 'manager']}><ReportsPage /></ProtectedRoute>} />
             <Route path="/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
+            <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+            <Route path="/kitchen" element={<ProtectedRoute><KitchenPage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
@@ -65,6 +70,9 @@ const App = () => {
           }}
         />
         <Routes>
+          {/* PUBLIC — customer QR ordering page, no login needed */}
+          <Route path="/menu/:token" element={<QRMenuPage />} />
+
           <Route path="/login" element={<LoginPage />} />
           <Route path="/*" element={
             <ProtectedRouteWrapper>

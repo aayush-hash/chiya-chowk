@@ -45,6 +45,12 @@ const tableSchema = new mongoose.Schema({
     trim: true,
     maxlength: [200, 'Notes cannot exceed 200 characters'],
   },
+  // QR self-ordering token — unique per table, used in QR URL
+  qrToken: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -52,6 +58,7 @@ const tableSchema = new mongoose.Schema({
 });
 
 tableSchema.index({ status: 1, isActive: 1 });
-// tableSchema.index({ number: 1 });
+tableSchema.index({ number: 1 });
+tableSchema.index({ qrToken: 1 });
 
 module.exports = mongoose.model('Table', tableSchema);

@@ -8,9 +8,11 @@ const NAV = [
     { path: '/pos', icon: '🛒', label: 'New Order' },
     { path: '/tables', icon: '🪑', label: 'Tables' },
     { path: '/orders', icon: '📋', label: 'All Orders' },
+    { path: '/kitchen', icon: '👨‍🍳', label: 'Kitchen & QR Orders' },
   ]},
   { group: 'Management', items: [
     { path: '/menu', icon: '🍽️', label: 'Menu Items', roles: ['admin', 'manager'] },
+    { path: '/inventory', icon: '📦', label: 'Inventory' },
     { path: '/reports', icon: '📈', label: 'Reports', roles: ['admin', 'manager'] },
     { path: '/transactions', icon: '💰', label: 'Transactions' },
   ]},
