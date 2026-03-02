@@ -34,6 +34,7 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
 // @access  Public
 exports.login = async (req, res, next) => {
   try {
+    console.log('LOGIN HIT - body:', req.body);
     const { username, password } = req.body;
 
     // Find user
@@ -75,6 +76,7 @@ exports.login = async (req, res, next) => {
     logger.info(`User logged in: ${user.username} (${user.role})`);
     sendTokenResponse(user, 200, res, 'Login successful');
   } catch (error) {
+    console.error('FULL LOGIN ERROR:', error);
     logger.error(`Login error: ${error.message}`);
     next(error);
   }

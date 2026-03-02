@@ -71,7 +71,7 @@ const orderSchema = new mongoose.Schema({
   cashier: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    default: null,
   },
   cashierName: { type: String },
   customerName: { type: String, trim: true, maxlength: 100 },
@@ -87,6 +87,9 @@ const orderSchema = new mongoose.Schema({
   cancelReason: { type: String, trim: true, maxlength: 200 },
   amountReceived: { type: Number, default: 0 },
   changeGiven: { type: Number, default: 0 },
+  // QR self-ordering fields
+  isQROrder: { type: Boolean, default: false },
+  source: { type: String, enum: ['pos', 'qr'], default: 'pos' },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -117,7 +120,7 @@ orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ orderStatus: 1 });
 orderSchema.index({ table: 1, paymentStatus: 1 });
 orderSchema.index({ cashier: 1 });
-// orderSchema.index({ orderId: 1 });
+orderSchema.index({ orderId: 1 });
 orderSchema.index({ paymentMethod: 1, createdAt: -1 });
 
 // Compound index for dashboard queries

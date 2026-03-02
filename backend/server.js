@@ -6,8 +6,8 @@ const mongoSanitize = require('express-mongo-sanitize');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const morgan = require('morgan');
-const hpp = require('hpp');
 require('dotenv').config();
+console.log("FRONTEND_URL FROM ENV:", process.env.FRONTEND_URL);
 
 const connectDB = require('./config/db');
 const logger = require('./utils/logger');
@@ -27,13 +27,29 @@ connectDB();
 
 // ===== SECURITY MIDDLEWARE =====
 
+const http = require('http');
+const descriptor = Object.getOwnPropertyDescriptor(http.IncomingMessage.prototype, 'query');
+if (descriptor && !descriptor.set) {
+  Object.defineProperty(http.IncomingMessage.prototype, 'query', {
+    get: descriptor.get,
+    set(val) { this._query = val; },
+    configurable: true,
+  });
+}
+
 // Trust proxy (needed for rate limiting behind reverse proxy)
 app.set('trust proxy', 1);
+
+// CORS
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 
 // Security HTTP headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // Disable for API
+  contentSecurityPolicy: false,
 }));
 
 // Rate limiting - general
@@ -58,25 +74,41 @@ const authLimiter = rateLimit({
 app.use('/api/', generalLimiter);
 app.use('/api/auth/login', authLimiter);
 
-// CORS
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-
 // Body parsing with size limits (prevent payload attacks)
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Data sanitization against NoSQL injection (removes $ and . from req.body)
-app.use(mongoSanitize());
+// Safe NoSQL injection sanitizer (Node 18+ compatible)
+app.use((req, res, next) => {
+  const sanitize = (obj) => {
+    if (obj && typeof obj === 'object') {
+      for (const key in obj) {
+        if (/^\$/.test(key) || key.includes('.')) {
+          delete obj[key];
+        } else {
+          sanitize(obj[key]);
+        }
+      }
+    }
+  };
+  sanitize(req.body);
+  sanitize(req.params);
+  next();
+});
 
-// HTTP Parameter Pollution prevention
-app.use(hpp({
-  whitelist: ['status', 'payment', 'category', 'sort'],
-}));
+// HTTP Parameter Pollution prevention (custom, Node 18+ compatible)
+const hppWhitelist = ['status', 'payment', 'category', 'sort'];
+app.use((req, res, next) => {
+  // Sanitize body
+  if (req.body && typeof req.body === 'object') {
+    for (const key in req.body) {
+      if (!hppWhitelist.includes(key) && Array.isArray(req.body[key])) {
+        req.body[key] = req.body[key][0];
+      }
+    }
+  }
+  next();
+});
 
 // Compression
 app.use(compression());
@@ -110,7 +142,6 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/users', userRoutes);
 
-// ===== 404 HANDLER =====
 // ===== 404 HANDLER =====
 app.use((req, res) => {
   res.status(404).json({
