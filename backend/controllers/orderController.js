@@ -3,6 +3,7 @@ const MenuItem = require('../models/MenuItem');
 const Table = require('../models/Table');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
+// const { deductStockForOrder } = require('./inventoryController');
 
 // @desc    Create order
 // @route   POST /api/orders
@@ -10,6 +11,15 @@ const logger = require('../utils/logger');
 exports.createOrder = async (req, res, next) => {
   try {
     const { items, tableId, tableNumber, orderType, paymentMethod, discount, discountType, note, customerName, customerPhone, amountReceived } = req.body;
+
+    // Manual items validation
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return next(new AppError('Order must have at least one item', 400));
+    }
+    for (const item of items) {
+      if (!item.menuItem) return next(new AppError('Each item must have a menuItem ID', 400));
+      if (!item.qty || item.qty < 1) return next(new AppError('Each item must have a valid quantity', 400));
+    }
 
     // Validate and enrich items from DB (prevent price manipulation)
     const enrichedItems = [];
@@ -53,6 +63,9 @@ exports.createOrder = async (req, res, next) => {
     const total = taxableAmount + taxAmount + serviceCharge;
     const changeGiven = amountReceived ? Math.max(0, amountReceived - total) : 0;
 
+
+
+    
     const order = await Order.create({
       table: tableId || null,
       tableNumber: tableNumber || null,
@@ -85,6 +98,14 @@ exports.createOrder = async (req, res, next) => {
         currentOrder: order._id,
       });
     }
+
+// Auto-deduct inventory stock (non-blocking)
+try {
+  const { deductStockForOrder } = require('./inventoryController');
+  deductStockForOrder(order.orderId, enrichedItems);
+} catch (e) {
+  logger.warn('Inventory deduction skipped: ' + e.message);
+}
 
     const populatedOrder = await Order.findById(order._id).populate('cashier', 'name username');
 
@@ -380,6 +401,61 @@ exports.getDashboardStats = async (req, res, next) => {
   }
 };
 
+// @desc    Add items to existing order
+// @route   POST /api/orders/:id/add-items
+// @access  Private
+exports.addItemsToOrder = async (req, res, next) => {
+  try {
+    const { items } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return next(new AppError('No items provided', 400));
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) return next(new AppError('Order not found', 404));
+    if (order.paymentStatus === 'paid') return next(new AppError('Cannot add items to a paid order', 400));
+
+    // Enrich and add each item
+    for (const item of items) {
+      const menuItem = await MenuItem.findById(item.menuItem).lean();
+      if (!menuItem || !menuItem.isAvailable || menuItem.isDeleted) {
+        return next(new AppError(`${item.name || 'Item'} is not available`, 400));
+      }
+      const existing = order.items.find(i => i.menuItem.toString() === menuItem._id.toString());
+      if (existing) {
+        // Increase qty if item already in order
+        existing.qty += item.qty;
+        existing.subtotal = existing.price * existing.qty;
+      } else {
+        order.items.push({
+          menuItem: menuItem._id,
+          name: menuItem.name,
+          emoji: menuItem.emoji,
+          category: menuItem.category,
+          price: menuItem.price,
+          qty: item.qty,
+          subtotal: menuItem.price * item.qty,
+          note: item.note || '',
+        });
+      }
+      await MenuItem.findByIdAndUpdate(menuItem._id, { $inc: { soldCount: item.qty } });
+    }
+
+    // Recalculate totals
+    order.subtotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
+    const taxableAmount = Math.max(0, order.subtotal - (order.discount || 0));
+    order.taxAmount = Math.round(taxableAmount * order.taxRate / 100);
+    order.total = taxableAmount + order.taxAmount + (order.serviceCharge || 0);
+
+    await order.save();
+
+    logger.info(`Items added to order ${order.orderId} by ${req.user.username}`);
+    res.json({ success: true, message: 'Items added successfully', order });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Sales report
 // @route   GET /api/orders/stats/report
 // @access  Private (admin/manager)
@@ -460,7 +536,8 @@ exports.getSalesReport = async (req, res, next) => {
         categoryStats,
         period: { start, end, groupBy },
       },
-    });
+    }); 
+    console.log('CREATE ORDER body:', JSON.stringify(req.body, null, 2));
   } catch (error) {
     next(error);
   }

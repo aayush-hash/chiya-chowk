@@ -177,7 +177,7 @@ inventorySchema.methods.deductStock = async function (quantity, orderId, menuIte
 };
 
 // Indexes
-inventorySchema.index({ name: 1 });
+// inventorySchema.index({ name: 1 });
 inventorySchema.index({ category: 1, isActive: 1 });
 inventorySchema.index({ currentStock: 1, lowStockThreshold: 1 });
 inventorySchema.index({ 'usedInMenuItems.menuItem': 1 });

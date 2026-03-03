@@ -19,6 +19,8 @@ const menuRoutes = require('./routes/menu');
 const orderRoutes = require('./routes/orders');
 const tableRoutes = require('./routes/tables');
 const userRoutes = require('./routes/users');
+const inventoryRoutes = require('./routes/inventory');
+const qrRoutes = require('./routes/qr');
 
 const app = express();
 
@@ -97,7 +99,7 @@ app.use((req, res, next) => {
 });
 
 // HTTP Parameter Pollution prevention (custom, Node 18+ compatible)
-const hppWhitelist = ['status', 'payment', 'category', 'sort'];
+const hppWhitelist = ['status', 'payment', 'category', 'sort','items'];
 app.use((req, res, next) => {
   // Sanitize body
   if (req.body && typeof req.body === 'object') {
@@ -141,6 +143,8 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/qr', qrRoutes);
 
 // ===== 404 HANDLER =====
 app.use((req, res) => {
