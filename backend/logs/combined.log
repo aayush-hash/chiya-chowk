@@ -193,3 +193,6 @@
 {"level":"info","message":"Table 1 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 13:42:24"}
 {"level":"info","message":"Table 2 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 13:42:36"}
 {"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-03-03 13:52:54"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-03 13:52:59"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-03 13:52:59"}
+{"level":"info","message":"User logged in: staff (staff)","service":"chiya-chowk-api","timestamp":"2026-03-03 13:53:53"}
