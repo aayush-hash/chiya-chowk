@@ -196,3 +196,53 @@
 {"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-03 13:52:59"}
 {"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-03 13:52:59"}
 {"level":"info","message":"User logged in: staff (staff)","service":"chiya-chowk-api","timestamp":"2026-03-03 13:53:53"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-03 15:46:48"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-03 15:46:48"}
+{"level":"info","message":"User logged out: staff","service":"chiya-chowk-api","timestamp":"2026-03-03 15:47:13"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-03-03 15:47:15"}
+{"level":"info","message":"Table 1 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 15:47:54"}
+{"level":"info","message":"Table 6 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 15:48:05"}
+{"level":"info","message":"Table 8 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 15:48:10"}
+{"level":"info","message":"Table 1 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:09:09"}
+{"level":"info","message":"Order created: ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:13:52"}
+{"level":"info","message":"Items added to order ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:14:05"}
+{"level":"info","message":"Items added to order ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:14:21"}
+{"level":"info","message":"Order created: ORD-1043 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:14:41"}
+{"level":"info","message":"Order paid: ORD-1043 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:15:07"}
+{"level":"info","message":"Order paid: ORD-1040 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:15:18"}
+{"level":"info","message":"Order paid: ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:15:25"}
+{"level":"info","message":"Table 5 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:15:33"}
+{"level":"info","message":"Table 5 status set to dirty by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:15:35"}
+{"level":"info","message":"Order created: ORD-1044 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:20:15"}
+{"level":"info","message":"QR token generated for Table 5 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:20:26"}
+{"level":"info","message":"QR Order placed: ORD-1045 Table 1 by john","service":"chiya-chowk-api","timestamp":"2026-03-03 16:21:41"}
+{"level":"info","message":"QR Order placed: ORD-1046 Table 1 by john the great","service":"chiya-chowk-api","timestamp":"2026-03-03 16:25:58"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-03-03 16:38:16"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-03 16:38:31"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-03 16:38:31"}
+{"level":"info","message":"QR Order ORD-1046 status → preparing by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:39:10"}
+{"level":"info","message":"QR Order ORD-1046 status → ready by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:39:20"}
+{"level":"info","message":"QR Order ORD-1046 status → served by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:40:33"}
+{"level":"info","message":"QR Order ORD-1045 status → preparing by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:41:23"}
+{"level":"info","message":"QR Order ORD-1045 status → ready by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:41:26"}
+{"level":"info","message":"QR Order ORD-1045 status → served by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:41:27"}
+{"level":"info","message":"QR Order ORD-1046 status → completed by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:41:31"}
+{"level":"info","message":"QR Order ORD-1045 status → completed by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:41:34"}
+{"level":"info","message":"QR Order placed: ORD-1047 Table 1 by rajesh","service":"chiya-chowk-api","timestamp":"2026-03-03 16:42:08"}
+{"level":"info","message":"Items added to order ORD-1047 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:42:40"}
+{"level":"info","message":"Order paid: ORD-1047 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:43:28"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-03-03 16:50:13"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-03 16:50:23"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-03 16:50:23"}
+{"level":"info","message":"QR Order placed: ORD-1048 Table 1 by jj","service":"chiya-chowk-api","timestamp":"2026-03-03 16:51:23"}
+{"level":"info","message":"QR Order ORD-1048 status → preparing by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:51:40"}
+{"level":"info","message":"QR Order ORD-1048 status → ready by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:51:56"}
+{"level":"info","message":"QR Order ORD-1048 status → served by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:52:01"}
+{"level":"info","message":"QR Order ORD-1048 status → completed by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:52:21"}
+{"level":"info","message":"QR token generated for Table 2 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:53:04"}
+{"level":"info","message":"QR token generated for Table 3 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:53:47"}
+{"level":"info","message":"QR token generated for Table 8 by admin","service":"chiya-chowk-api","timestamp":"2026-03-03 16:56:26"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-03-03 17:07:28"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-03 17:07:34"}
+{"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-03 17:07:34"}
+{"level":"info","message":"QR Order placed: ORD-1049 Table 1 by jojo","service":"chiya-chowk-api","timestamp":"2026-03-03 17:08:07"}

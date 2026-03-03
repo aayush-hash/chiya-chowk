@@ -5,6 +5,7 @@ const {
   getTablesWithQR,
   scanQR,
   placeQROrder,
+  addItemsToQROrder,
   trackOrder,
   getLiveQROrders,
   updateQROrderStatus,
@@ -26,6 +27,7 @@ const placeOrderValidator = [
 // ===== PUBLIC ROUTES (no auth required) =====
 router.get('/scan/:token', scanQR);
 router.post('/order/:token', placeOrderValidator, placeQROrder);
+router.post('/order/:token/add-items', addItemsToQROrder);
 router.get('/track/:orderId', trackOrder);
 
 // ===== PRIVATE ROUTES (staff auth required) =====

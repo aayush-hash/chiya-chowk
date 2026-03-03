@@ -65,8 +65,8 @@ const printBill = (order, table) => {
   win.document.close();
 };
 
-// ===== ADD ITEMS MODAL (mini POS for existing table) =====
-const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
+// ===== ORDER / ADD ITEMS MODAL =====
+const OrderModal = ({ table, existingOrder, onClose, onSuccess }) => {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState(['All']);
   const [activeCategory, setActiveCategory] = useState('All');
@@ -74,6 +74,8 @@ const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const isNewOrder = !existingOrder || !existingOrder._id;
 
   useEffect(() => {
     menuAPI.getAll({ available: true }).then(({ data }) => {
@@ -104,40 +106,56 @@ const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
 
   const handleSubmit = async () => {
-  if (cart.length === 0) { toast.error('Add at least one item'); return; }
-  setSubmitting(true);
-  try {
-    await orderAPI.addItems(existingOrder._id, {
-      items: cart.map(c => ({ menuItem: c.menuItem, qty: c.qty })),
-    });
-    toast.success(`✅ ${cartCount} item(s) added to order`);
-    onSuccess();
-  } catch (err) {
-    toast.error(err.response?.data?.message || 'Failed to add items');
-  } finally {
-    setSubmitting(false);
-  }
-};
+    if (cart.length === 0) { toast.error('Add at least one item'); return; }
+    setSubmitting(true);
+    try {
+      if (!isNewOrder) {
+        await orderAPI.addItems(existingOrder._id, {
+          items: cart.map(c => ({ menuItem: c.menuItem, qty: c.qty })),
+        });
+        toast.success(`✅ ${cartCount} item(s) added to order`);
+      } else {
+        await orderAPI.create({
+          items: cart.map(c => ({ menuItem: c.menuItem, qty: c.qty })),
+          tableId: table._id,
+          tableNumber: table.number,
+          orderType: 'dine-in',
+          paymentMethod: 'pending',
+          discount: 0,
+          discountType: 'fixed',
+          note: '',
+        });
+        toast.success(`✅ Order placed for Table ${table.number}`);
+      }
+      onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to place order');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640, height: '85vh', display: 'flex', flexDirection: 'column' }}>
         <div className="modal-header">
           <div>
-            <h3 className="modal-title">➕ Add Items — Table {table.number}</h3>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Select items to add to the existing order</div>
+            <h3 className="modal-title">
+              {isNewOrder ? `🍽️ New Order — Table ${table.number}` : `➕ Add Items — Table ${table.number}`}
+            </h3>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              {isNewOrder ? 'Select items to place a new order' : 'Select items to add to existing order'}
+            </div>
           </div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 0 }}>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Menu side */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflow: 'hidden' }}>
-            {/* Search */}
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-              <input className="form-control" placeholder="🔍 Search..." value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 13 }} />
+              <input className="form-control" placeholder="🔍 Search menu..." value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 13 }} />
             </div>
-            {/* Category tabs */}
             <div style={{ display: 'flex', gap: 6, padding: '8px 14px', borderBottom: '1px solid var(--border)', overflowX: 'auto', scrollbarWidth: 'none', flexShrink: 0 }}>
               {categories.map(cat => (
                 <button key={cat} onClick={() => setActiveCategory(cat)} style={{
@@ -149,7 +167,6 @@ const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
                 }}>{cat}</button>
               ))}
             </div>
-            {/* Items grid */}
             {loading ? (
               <div className="flex-center" style={{ flex: 1 }}><div className="spinner" /></div>
             ) : (
@@ -171,7 +188,9 @@ const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
                     </div>
                   );
                 })}
-                {filtered.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--text3)', padding: 30, fontSize: 13 }}>No items found</div>}
+                {filtered.length === 0 && (
+                  <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--text3)', padding: 30, fontSize: 13 }}>No items found</div>
+                )}
               </div>
             )}
           </div>
@@ -179,7 +198,7 @@ const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
           {/* Cart side */}
           <div style={{ width: 220, display: 'flex', flexDirection: 'column', background: 'var(--card2)' }}>
             <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--text2)' }}>
-              🛒 New Items ({cartCount})
+              🛒 {isNewOrder ? 'Order' : 'New Items'} ({cartCount})
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
               {cart.length === 0 ? (
@@ -192,9 +211,9 @@ const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
                     <div style={{ fontSize: 10, color: 'var(--amber)', fontFamily: 'DM Mono' }}>Rs. {c.price * c.qty}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <button onClick={() => changeQty(c.menuItem, -1)} style={{ width: 18, height: 18, borderRadius: 4, border: 'none', background: 'var(--border2)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    <button onClick={(e) => { e.stopPropagation(); changeQty(c.menuItem, -1); }} style={{ width: 18, height: 18, borderRadius: 4, border: 'none', background: 'var(--border2)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                     <span style={{ fontSize: 12, fontWeight: 700, minWidth: 14, textAlign: 'center' }}>{c.qty}</span>
-                    <button onClick={() => changeQty(c.menuItem, 1)} style={{ width: 18, height: 18, borderRadius: 4, border: 'none', background: 'var(--border2)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    <button onClick={(e) => { e.stopPropagation(); changeQty(c.menuItem, 1); }} style={{ width: 18, height: 18, borderRadius: 4, border: 'none', background: 'var(--border2)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                   </div>
                 </div>
               ))}
@@ -206,7 +225,11 @@ const AddItemsModal = ({ table, existingOrder, onClose, onSuccess }) => {
                   <span style={{ fontFamily: 'DM Mono', color: 'var(--amber)' }}>Rs. {cartTotal.toLocaleString()}</span>
                 </div>
                 <button className="btn btn-primary" style={{ width: '100%', fontSize: 13 }} onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Adding...</> : `➕ Add ${cartCount} Item${cartCount > 1 ? 's' : ''}`}
+                  {submitting
+                    ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Placing...</>
+                    : isNewOrder
+                      ? `🍽️ Place Order (${cartCount})`
+                      : `➕ Add ${cartCount} Item${cartCount > 1 ? 's' : ''}`}
                 </button>
               </div>
             )}
@@ -254,7 +277,6 @@ const PayBillModal = ({ order, table, onClose, onSuccess }) => {
           <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
-          {/* Order summary */}
           <div style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: 'var(--text3)' }}>Order</span>
@@ -288,7 +310,6 @@ const PayBillModal = ({ order, table, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Payment method */}
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Payment Method</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -305,7 +326,6 @@ const PayBillModal = ({ order, table, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Cash: amount received */}
           {paymentMethod === 'cash' && (
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
@@ -327,7 +347,6 @@ const PayBillModal = ({ order, table, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* QR info */}
           {paymentMethod === 'qr' && (
             <div style={{ marginBottom: 16, padding: '12px 14px', background: 'rgba(91,155,213,0.08)', border: '1px solid rgba(91,155,213,0.25)', borderRadius: 10, textAlign: 'center' }}>
               <div style={{ fontSize: 36, marginBottom: 6 }}>📱</div>
@@ -340,7 +359,7 @@ const PayBillModal = ({ order, table, onClose, onSuccess }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <button className="btn btn-secondary" onClick={onClose} disabled={paying}>Cancel</button>
             <button className="btn btn-success" onClick={handlePay} disabled={paying || !isExact} style={{ opacity: !isExact ? 0.5 : 1 }}>
-              {paying ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Processing...</> : `✅ Confirm Payment`}
+              {paying ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Processing...</> : '✅ Confirm Payment'}
             </button>
           </div>
         </div>
@@ -356,7 +375,7 @@ export const TablesPage = () => {
   const [selectedTable, setSelectedTable] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
-  const [showAddItems, setShowAddItems] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
   const [payingOrder, setPayingOrder] = useState(null);
   const [paidOrder, setPaidOrder] = useState(null);
 
@@ -404,6 +423,8 @@ export const TablesPage = () => {
   };
 
   const statusColor = { available: 'green', occupied: 'amber', reserved: 'blue', dirty: 'red' };
+  const hasActiveOrder = selectedTable?.currentOrder && selectedTable?.currentOrder?.paymentStatus !== 'paid';
+  const hasPaidOrder = selectedTable?.currentOrder?.paymentStatus === 'paid';
 
   if (loading) return <div className="flex-center" style={{ height: 300 }}><div className="spinner" style={{ width: 32, height: 32 }} /></div>;
 
@@ -451,13 +472,15 @@ export const TablesPage = () => {
               <button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <div className="modal-body">
+              {/* Status buttons */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
                 <button className="btn btn-success btn-sm" onClick={() => setStatus(selectedTable._id, 'available')}>✓ Available</button>
                 <button className="btn btn-sm" style={{ background: 'var(--blue-dim)', border: '1px solid var(--blue)', color: 'var(--blue)' }} onClick={() => setStatus(selectedTable._id, 'reserved')}>📅 Reserve</button>
                 <button className="btn btn-danger btn-sm" onClick={() => setStatus(selectedTable._id, 'dirty')}>🧹 Dirty</button>
               </div>
 
-              {selectedTable.currentOrder ? (
+              {/* Active unpaid order */}
+              {hasActiveOrder ? (
                 <div style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedTable.currentOrder.orderId}</span>
@@ -476,42 +499,51 @@ export const TablesPage = () => {
                     <span>Total</span>
                     <span style={{ fontFamily: 'DM Mono', color: 'var(--amber)' }}>Rs. {selectedTable.currentOrder.total?.toLocaleString()}</span>
                   </div>
-
-{/* Action buttons */}
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
-  {selectedTable.currentOrder.paymentStatus !== 'paid' && (
-    <button className="btn btn-primary btn-sm" onClick={() => { setShowModal(false); setShowAddItems(true); }}>
-      ➕ Add Items
-    </button>
-  )}
-  {selectedTable.currentOrder.paymentStatus !== 'paid' && (
-    <button className="btn btn-success btn-sm" onClick={() => { setPayingOrder(selectedTable.currentOrder); setShowModal(false); setShowPayModal(true); }}>
-      💳 Collect Bill
-    </button>
-  )}
-  {selectedTable.currentOrder.paymentStatus === 'paid' && (
-    <button className="btn btn-secondary btn-sm" onClick={() => printBill(selectedTable.currentOrder, selectedTable)}>
-      🖨️ Print Bill
-    </button>
-  )}
-  <button className="btn btn-danger btn-sm" onClick={() => clearTable(selectedTable._id)}>🧹 Clear</button>
-</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => { setShowModal(false); setShowOrderModal(true); }}>➕ Add Items</button>
+                    <button className="btn btn-success btn-sm" onClick={() => { setPayingOrder(selectedTable.currentOrder); setShowModal(false); setShowPayModal(true); }}>💳 Collect Bill</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => clearTable(selectedTable._id)}>🧹 Clear Table</button>
+                  </div>
                 </div>
+
+              ) : hasPaidOrder ? (
+                /* Paid order */
+                <div style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 8, padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, color: 'var(--green)', fontWeight: 600, marginBottom: 10 }}>✅ Order Paid — {selectedTable.currentOrder.orderId}</div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => printBill(selectedTable.currentOrder, selectedTable)}>🖨️ Print Bill</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => clearTable(selectedTable._id)}>🧹 Clear Table</button>
+                  </div>
+                </div>
+
               ) : (
-                <div className="empty-state"><div className="icon">🪑</div><p>No active order</p></div>
+                /* No order — take new order */
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <div style={{ fontSize: 40, marginBottom: 8 }}>🪑</div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>
+                    {selectedTable.status === 'reserved' ? '📅 Table is reserved' : selectedTable.status === 'dirty' ? '🧹 Table needs cleaning' : '✅ Table is available'}
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', fontSize: 14, padding: '12px' }}
+                    onClick={() => { setShowModal(false); setShowOrderModal(true); }}
+                  >
+                    🍽️ Take Order for Table {selectedTable.number}
+                  </button>
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Add items modal */}
-      {showAddItems && selectedTable && (
-        <AddItemsModal
+      {/* Order / Add items modal */}
+      {showOrderModal && selectedTable && (
+        <OrderModal
           table={selectedTable}
-          existingOrder={selectedTable.currentOrder}
-          onClose={() => setShowAddItems(false)}
-          onSuccess={() => { setShowAddItems(false); fetchTables(); toast.success('Items added!'); }}
+          existingOrder={hasActiveOrder ? selectedTable.currentOrder : null}
+          onClose={() => setShowOrderModal(false)}
+          onSuccess={() => { setShowOrderModal(false); fetchTables(); }}
         />
       )}
 
