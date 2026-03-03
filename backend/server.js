@@ -2,12 +2,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const morgan = require('morgan');
 require('dotenv').config();
-console.log("FRONTEND_URL FROM ENV:", process.env.FRONTEND_URL);
 
 const connectDB = require('./config/db');
 const logger = require('./utils/logger');
@@ -27,95 +25,72 @@ const app = express();
 // ===== CONNECT DB =====
 connectDB();
 
-// ===== SECURITY MIDDLEWARE =====
-
-const http = require('http');
-const descriptor = Object.getOwnPropertyDescriptor(http.IncomingMessage.prototype, 'query');
-if (descriptor && !descriptor.set) {
-  Object.defineProperty(http.IncomingMessage.prototype, 'query', {
-    get: descriptor.get,
-    set(val) { this._query = val; },
-    configurable: true,
-  });
-}
-
-// Trust proxy (needed for rate limiting behind reverse proxy)
+// Trust proxy
 app.set('trust proxy', 1);
 
 // CORS
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+app.use(cors({ origin: true, credentials: true }));
 
-// Security HTTP headers
+// Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: false,
 }));
 
-// Rate limiting - general
-const generalLimiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
-  message: { success: false, message: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// ===== RATE LIMITING =====
+// Disabled in development — only active in production
+if (process.env.NODE_ENV === 'production') {
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { success: false, message: 'Too many login attempts. Please wait 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+  });
+  app.use('/api/auth/login', authLimiter);
 
-// Auth rate limiting - stricter
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { success: false, message: 'Too many login attempts. Please wait 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-});
+  const generalLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 300,
+    message: { success: false, message: 'Too many requests. Please slow down.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => ['/api/qr/orders/live', '/api/orders/stats/dashboard'].some(p => req.path.includes(p)),
+  });
+  app.use('/api/', generalLimiter);
+}
 
-app.use('/api/', generalLimiter);
-app.use('/api/auth/login', authLimiter);
-
-// Body parsing with size limits (prevent payload attacks)
+// ===== BODY PARSING =====
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Safe NoSQL injection sanitizer (Node 18+ compatible)
+// ===== NOSQL INJECTION SANITIZER =====
+// Only strip keys that start with $ at top level — don't touch arrays or nested objects
 app.use((req, res, next) => {
-  const sanitize = (obj) => {
-    if (obj && typeof obj === 'object') {
-      for (const key in obj) {
-        if (/^\$/.test(key) || key.includes('.')) {
-          delete obj[key];
-        } else {
-          sanitize(obj[key]);
+  if (req.body && typeof req.body === 'object') {
+    const sanitizeShallow = (obj) => {
+      if (Array.isArray(obj)) {
+        obj.forEach(item => sanitizeShallow(item));
+      } else if (obj && typeof obj === 'object') {
+        for (const key of Object.keys(obj)) {
+          if (key.startsWith('$')) {
+            delete obj[key];
+          } else {
+            sanitizeShallow(obj[key]);
+          }
         }
       }
-    }
-  };
-  sanitize(req.body);
-  sanitize(req.params);
-  next();
-});
-
-// HTTP Parameter Pollution prevention (custom, Node 18+ compatible)
-const hppWhitelist = ['status', 'payment', 'category', 'sort','items'];
-app.use((req, res, next) => {
-  // Sanitize body
-  if (req.body && typeof req.body === 'object') {
-    for (const key in req.body) {
-      if (!hppWhitelist.includes(key) && Array.isArray(req.body[key])) {
-        req.body[key] = req.body[key][0];
-      }
-    }
+    };
+    sanitizeShallow(req.body);
   }
   next();
 });
 
-// Compression
+// ===== COMPRESSION =====
 app.use(compression());
 
-// HTTP request logging
+// ===== LOGGING =====
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 } else {
@@ -160,9 +135,7 @@ app.use(errorHandler);
 // ===== UNHANDLED REJECTIONS =====
 process.on('unhandledRejection', (err) => {
   logger.error(`Unhandled Rejection: ${err.message}`);
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
-  }
+  if (process.env.NODE_ENV === 'production') process.exit(1);
 });
 
 process.on('uncaughtException', (err) => {

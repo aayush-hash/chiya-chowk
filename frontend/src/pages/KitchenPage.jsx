@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
-const api = axios.create({ baseURL: '/api', timeout: 15000 });
-const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+const authGet = (path) => api.get(path);
+const authPost = (path, data) => api.post(path, data);
+const authPatch = (path, data) => api.patch(path, data);
 
 const STATUS_CONFIG = {
   pending:   { label: 'New Order',    emoji: '📋', color: '#e05c5c', bg: 'rgba(224,92,92,0.1)',  border: 'rgba(224,92,92,0.3)',  next: 'preparing', nextLabel: '👨‍🍳 Start Preparing' },
@@ -183,7 +184,7 @@ const QRTableManager = () => {
 
   const fetchTables = async () => {
     try {
-      const { data } = await api.get('/qr/tables', authHeaders());
+      const { data } = await authGet('/qr/tables');
       setTables(data.tables || []);
       setFrontendUrl(data.frontendUrl || '');
     } catch (err) {
@@ -198,7 +199,7 @@ const QRTableManager = () => {
   const generateQR = async (tableId, tableNumber) => {
     setGenerating(tableId);
     try {
-      const { data } = await api.post(`/qr/tables/${tableId}/generate`, {}, authHeaders());
+      const { data } = await authPost(`/qr/tables/${tableId}/generate`, {});
       toast.success(`QR generated for Table ${tableNumber}`);
       fetchTables();
     } catch (err) {
@@ -308,7 +309,7 @@ const KitchenPage = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const { data } = await api.get('/qr/orders/live', authHeaders());
+      const { data } = await authGet('/qr/orders/live');
       const newOrders = data.orders || [];
       const newIds = new Set(newOrders.map(o => o._id));
 
@@ -348,7 +349,7 @@ const KitchenPage = () => {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 8000); // poll every 8s
+    const interval = setInterval(fetchOrders, 15000); // poll every 8s
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
@@ -360,7 +361,7 @@ const KitchenPage = () => {
 
   const handleStatusChange = async (orderId, status) => {
     try {
-      await api.patch(`/qr/orders/${orderId}/status`, { status }, authHeaders());
+      await authPatch(`/qr/orders/${orderId}/status`, { status });
       toast.success(`Order marked as ${status}`);
       fetchOrders();
     } catch (err) {
@@ -370,7 +371,7 @@ const KitchenPage = () => {
 
   const handleCancel = async (orderId) => {
     try {
-      await api.patch(`/qr/orders/${orderId}/status`, { status: 'cancelled' }, authHeaders());
+      await authPatch(`/qr/orders/${orderId}/status`, { status: 'cancelled' });
       toast.success('Order cancelled');
       fetchOrders();
     } catch (err) {

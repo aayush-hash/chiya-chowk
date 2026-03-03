@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
+// Public axios — no auth token needed. CRA proxy in package.json forwards /api → localhost:5000
 const api = axios.create({ baseURL: '/api', timeout: 15000 });
 
 // ===== STATUS TRACKER =====
@@ -154,6 +155,8 @@ const QRMenuPage = () => {
   const [placing, setPlacing] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState(null);
 
+  const [existingOrder, setExistingOrder] = useState(null);
+
   useEffect(() => {
     const fetchMenu = async () => {
       try {
@@ -163,7 +166,17 @@ const QRMenuPage = () => {
         setCategories(data.categories);
         setSettings(data.settings);
         setActiveCategory(data.categories[0] || '');
-        setPhase('info');
+
+        // If table already has an active order, pre-fill customer info and go to tracking
+        if (data.existingOrder) {
+          setExistingOrder(data.existingOrder);
+          setCustomerName(data.existingOrder.customerName || '');
+          setCustomerPhone(data.existingOrder.customerPhone || '');
+          setPlacedOrderId(data.existingOrder.orderId);
+          setPhase('existing'); // show existing order screen
+        } else {
+          setPhase('info');
+        }
       } catch (err) {
         setError(err.response?.data?.message || 'Invalid QR code. Please ask staff for help.');
         setPhase('error');
@@ -211,13 +224,22 @@ const QRMenuPage = () => {
 
     setPlacing(true);
     try {
-      const { data } = await api.post(`/qr/order/${token}`, {
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
-        items: cart.map(c => ({ menuItem: c.menuItem, qty: c.qty, name: c.name })),
-        note,
-      });
-      setPlacedOrderId(data.order.orderId);
+      if (existingOrder && existingOrder._id) {
+        // Add to existing order using public add-items endpoint
+        await api.post(`/qr/order/${token}/add-items`, {
+          orderId: existingOrder._id,
+          items: cart.map(c => ({ menuItem: c.menuItem, qty: c.qty, name: c.name })),
+        });
+        setPlacedOrderId(existingOrder.orderId);
+      } else {
+        const { data } = await api.post(`/qr/order/${token}`, {
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          items: cart.map(c => ({ menuItem: c.menuItem, qty: c.qty, name: c.name })),
+          note,
+        });
+        setPlacedOrderId(data.order.orderId);
+      }
       setCart([]);
       setShowCart(false);
       setPhase('tracking');
@@ -248,6 +270,47 @@ const QRMenuPage = () => {
     <OrderTracker orderId={placedOrderId} onBack={() => { setPhase('menu'); setCustomerName(''); setNote(''); }} />
   );
 
+  if (phase === 'existing' && existingOrder) return (
+    <div style={styles.page}>
+      <div style={styles.infoCard}>
+        <div style={{ fontSize: 52, marginBottom: 8, textAlign: 'center' }}>🍵</div>
+        <h1 style={{ ...styles.heading, fontSize: 24, marginBottom: 4 }}>Welcome back!</h1>
+        <p style={{ color: '#a07850', textAlign: 'center', marginBottom: 20, fontSize: 14 }}>Table {tableInfo?.number} · Active Order</p>
+
+        <div style={{ ...styles.infoBox, marginBottom: 16 }}>
+          <div style={styles.infoRow}><span style={styles.infoLabel}>Order</span><span style={{ ...styles.infoValue, color: '#d4862a', fontFamily: 'monospace' }}>{existingOrder.orderId}</span></div>
+          <div style={styles.infoRow}><span style={styles.infoLabel}>Customer</span><span style={styles.infoValue}>{existingOrder.customerName}</span></div>
+          <div style={styles.infoRow}><span style={styles.infoLabel}>Status</span><span style={{ ...styles.infoValue, textTransform: 'capitalize', color: '#d4862a' }}>{existingOrder.orderStatus}</span></div>
+          <div style={styles.infoRow}><span style={styles.infoLabel}>Items</span><span style={styles.infoValue}>{existingOrder.items?.length} item(s)</span></div>
+          <div style={styles.infoRow}><span style={styles.infoLabel}>Total</span><span style={{ ...styles.infoValue, fontFamily: 'monospace', fontWeight: 700, color: '#d4862a' }}>Rs. {existingOrder.total}</span></div>
+        </div>
+
+        {/* Existing items list */}
+        <div style={{ marginBottom: 20 }}>
+          {existingOrder.items?.map((item, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #2a1f14', fontSize: 13 }}>
+              <span>{item.emoji} {item.name} × {item.qty}</span>
+              <span style={{ fontFamily: 'monospace', color: '#d4862a' }}>Rs. {item.subtotal || item.price * item.qty}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button style={{ ...styles.btnPrimary, width: '100%', fontSize: 15, padding: '13px 0' }}
+            onClick={() => setPhase('tracking')}>
+            📋 Track My Order
+          </button>
+          {['pending', 'preparing'].includes(existingOrder.orderStatus) && (
+            <button style={{ ...styles.btnSecondary, width: '100%', fontSize: 14, padding: '11px 0' }}
+              onClick={() => setPhase('menu')}>
+              ➕ Add More Items
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   if (phase === 'info') return (
     <div style={styles.page}>
       <div style={styles.infoCard}>
@@ -258,7 +321,17 @@ const QRMenuPage = () => {
         <div style={{ ...styles.infoBox, marginBottom: 24 }}>
           <div style={styles.infoRow}><span style={styles.infoLabel}>📍 Table</span><span style={{ ...styles.infoValue, color: '#d4862a', fontWeight: 700 }}>Table {tableInfo?.number}</span></div>
           <div style={styles.infoRow}><span style={styles.infoLabel}>🪑 Seats</span><span style={styles.infoValue}>{tableInfo?.seats} people</span></div>
-          <div style={styles.infoRow}><span style={styles.infoLabel}>📍 Location</span><span style={{ ...styles.infoValue, textTransform: 'capitalize' }}>{tableInfo?.location}</span></div>
+<div style={styles.infoRow}>
+  <span style={styles.infoLabel}>📍 Location</span>
+  <span
+    style={{
+      ...styles.infoValue,
+      textTransform: 'capitalize'
+    }}
+  >
+    {tableInfo?.location}
+  </span>
+</div>
         </div>
 
         <p style={{ color: '#6b5040', textAlign: 'center', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
@@ -312,9 +385,8 @@ const QRMenuPage = () => {
             {categories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)} style={{
                 padding: '6px 14px', borderRadius: 20, border: 'none', whiteSpace: 'nowrap',
-border: `1px solid ${activeCategory === cat ? '#d4862a' : '#2a1f14'}`,
-background: activeCategory === cat ? '#d4862a' : '#1a1008',
-color: activeCategory === cat ? '#1a0f00' : '#a07850',
+                background: activeCategory === cat ? '#d4862a' : '#1a1008',
+                color: activeCategory === cat ? '#1a0f00' : '#a07850',
                 fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
                 border: `1px solid ${activeCategory === cat ? '#d4862a' : '#2a1f14'}`,
               }}>
