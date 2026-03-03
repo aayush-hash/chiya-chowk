@@ -258,7 +258,7 @@ const QRMenuPage = () => {
         <div style={{ ...styles.infoBox, marginBottom: 24 }}>
           <div style={styles.infoRow}><span style={styles.infoLabel}>📍 Table</span><span style={{ ...styles.infoValue, color: '#d4862a', fontWeight: 700 }}>Table {tableInfo?.number}</span></div>
           <div style={styles.infoRow}><span style={styles.infoLabel}>🪑 Seats</span><span style={styles.infoValue}>{tableInfo?.seats} people</span></div>
-          <div style={styles.infoRow}><span style={styles.infoLabel}>📍 Location</span><span style={styles.infoValue} style={{ textTransform: 'capitalize' }}>{tableInfo?.location}</span></div>
+          <div style={styles.infoRow}><span style={styles.infoLabel}>📍 Location</span><span style={{ ...styles.infoValue, textTransform: 'capitalize' }}>{tableInfo?.location}</span></div>
         </div>
 
         <p style={{ color: '#6b5040', textAlign: 'center', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
@@ -312,8 +312,9 @@ const QRMenuPage = () => {
             {categories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)} style={{
                 padding: '6px 14px', borderRadius: 20, border: 'none', whiteSpace: 'nowrap',
-                background: activeCategory === cat ? '#d4862a' : '#1a1008',
-                color: activeCategory === cat ? '#1a0f00' : '#a07850',
+border: `1px solid ${activeCategory === cat ? '#d4862a' : '#2a1f14'}`,
+background: activeCategory === cat ? '#d4862a' : '#1a1008',
+color: activeCategory === cat ? '#1a0f00' : '#a07850',
                 fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
                 border: `1px solid ${activeCategory === cat ? '#d4862a' : '#2a1f14'}`,
               }}>

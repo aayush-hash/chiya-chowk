@@ -72,6 +72,7 @@ export const menuAPI = {
 export const orderAPI = {
   getAll: (params) => api.get('/orders', { params }),
   getById: (id) => api.get(`/orders/${id}`),
+  addItems: (id, data) => api.post(`/orders/${id}/add-items`, data),
   create: (data) => api.post('/orders', data),
   markPaid: (id, data) => api.put(`/orders/${id}/pay`, data),
   cancel: (id, data) => api.put(`/orders/${id}/cancel`, data),

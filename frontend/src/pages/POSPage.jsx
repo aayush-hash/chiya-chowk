@@ -11,16 +11,12 @@ const POSPage = () => {
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState('');
   const [orderType, setOrderType] = useState('dine-in');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discount, setDiscount] = useState('');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchMenu();
-    fetchTables();
-  }, []);
+  useEffect(() => { fetchMenu(); fetchTables(); }, []);
 
   const fetchMenu = async () => {
     setLoading(true);
@@ -28,11 +24,8 @@ const POSPage = () => {
       const { data } = await menuAPI.getAll({ available: true });
       setMenuItems(data.items);
       setCategories(['All', ...data.categories]);
-    } catch (err) {
-      toast.error('Failed to load menu');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { toast.error('Failed to load menu'); }
+    finally { setLoading(false); }
   };
 
   const fetchTables = async () => {
@@ -48,20 +41,19 @@ const POSPage = () => {
     return matchesCat && matchesSearch;
   });
 
-  const addToCart = useCallback((item) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.menuItem === item._id);
-      if (existing) return prev.map(c => c.menuItem === item._id ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { menuItem: item._id, name: item.name, emoji: item.emoji, price: item.price, qty: 1 }];
-    });
-    toast.success(`${item.emoji} Added`, { duration: 1200, position: 'bottom-right' });
-  }, []);
+ const addToCart = useCallback((item) => {
+  console.log('Adding item:', item); // temp debug
+  setCart(prev => {
+    const id = item._id || item.id; // handle both _id and id
+    const existing = prev.find(c => c.menuItem === id);
+    if (existing) return prev.map(c => c.menuItem === id ? { ...c, qty: c.qty + 1 } : c);
+    return [...prev, { menuItem: id, name: item.name, emoji: item.emoji, price: item.price, qty: 1 }];
+  });
+  toast.success(`${item.emoji} Added`, { duration: 1200, position: 'bottom-right' });
+}, []);
 
   const changeQty = (itemId, delta) => {
-    setCart(prev => {
-      const updated = prev.map(c => c.menuItem === itemId ? { ...c, qty: c.qty + delta } : c);
-      return updated.filter(c => c.qty > 0);
-    });
+    setCart(prev => prev.map(c => c.menuItem === itemId ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0));
   };
 
   const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
@@ -77,12 +69,13 @@ const POSPage = () => {
     try {
       const selectedTableObj = tables.find(t => t._id === selectedTable);
       const { data } = await orderAPI.create({
-        items: cart,
+        items: cart.map(c => ({ menuItem: c.menuItem, qty: c.qty })),
         tableId: selectedTable || null,
         tableNumber: selectedTableObj?.number || null,
         orderType,
-        paymentMethod,
+        paymentMethod: 'pending',
         discount: discountAmt,
+        discountType: 'fixed',
         note,
       });
       toast.success(`✅ ${data.order.orderId} placed!`, { duration: 3000 });
@@ -93,42 +86,39 @@ const POSPage = () => {
       fetchTables();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to place order');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   return (
     <div className="pos-page animate-fadeIn">
       <div className="pos-controls">
-        <select className="form-control" value={selectedTable} onChange={e => setSelectedTable(e.target.value)} style={{ maxWidth: 160 }}>
-          <option value="">Select Table</option>
+        <select className="form-control" value={selectedTable} onChange={e => setSelectedTable(e.target.value)} style={{ maxWidth: 180 }}>
+          <option value="">🪑 Select Table</option>
           {tables.map(t => <option key={t._id} value={t._id}>Table {t.number} ({t.seats} seats)</option>)}
         </select>
-        <select className="form-control" value={orderType} onChange={e => setOrderType(e.target.value)} style={{ maxWidth: 130 }}>
+        <select className="form-control" value={orderType} onChange={e => setOrderType(e.target.value)} style={{ maxWidth: 150 }}>
           <option value="dine-in">🍽️ Dine In</option>
           <option value="takeaway">🥡 Takeaway</option>
           <option value="delivery">🚀 Delivery</option>
         </select>
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
+          💳 Payment collected at bill time
+        </div>
       </div>
 
       <div className="pos-layout">
         {/* MENU PANEL */}
         <div className="menu-panel">
           <div className="menu-top">
-            <input type="text" className="form-control" placeholder="🔍 Search menu..."
-              value={search} onChange={e => setSearch(e.target.value)} />
+            <input type="text" className="form-control" placeholder="🔍 Search menu..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div className="cat-tabs">
             {categories.map(cat => (
-              <button key={cat} className={`cat-btn ${activeCategory === cat ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat)}>{cat}</button>
+              <button key={cat} className={`cat-btn ${activeCategory === cat ? 'active' : ''}`} onClick={() => setActiveCategory(cat)}>{cat}</button>
             ))}
           </div>
           {loading ? (
-            <div className="flex-center" style={{ flex: 1, padding: 40 }}>
-              <div className="spinner" style={{ width: 28, height: 28 }} />
-            </div>
+            <div className="flex-center" style={{ flex: 1, padding: 40 }}><div className="spinner" style={{ width: 28, height: 28 }} /></div>
           ) : (
             <div className="items-grid">
               {filteredItems.map(item => (
@@ -142,8 +132,7 @@ const POSPage = () => {
               ))}
               {filteredItems.length === 0 && (
                 <div className="empty-state" style={{ gridColumn: '1/-1' }}>
-                  <div className="icon">🍽️</div>
-                  <p>No items found</p>
+                  <div className="icon">🍽️</div><p>No items found</p>
                 </div>
               )}
             </div>
@@ -167,8 +156,7 @@ const POSPage = () => {
           <div className="cart-items">
             {cart.length === 0 ? (
               <div className="empty-state" style={{ padding: '30px 20px' }}>
-                <div className="icon">🛒</div>
-                <p>Tap items to add to order</p>
+                <div className="icon">🛒</div><p>Tap items to add to order</p>
               </div>
             ) : cart.map(c => (
               <div key={c.menuItem} className="cart-item">
@@ -194,18 +182,15 @@ const POSPage = () => {
               <div className="total-row-grand"><span>Total</span><span>Rs. {grand.toLocaleString()}</span></div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
               <input type="number" className="form-control" placeholder="Discount Rs." value={discount} onChange={e => setDiscount(e.target.value)} min="0" />
               <input type="text" className="form-control" placeholder="Note..." value={note} onChange={e => setNote(e.target.value)} />
             </div>
 
-            <div className="payment-methods">
-              {['cash', 'qr'].map(m => (
-                <div key={m} className={`pay-method ${paymentMethod === m ? 'active' : ''}`} onClick={() => setPaymentMethod(m)}>
-                  <div style={{ fontSize: 20 }}>{m === 'cash' ? '💵' : '📱'}</div>
-                  <div>{m === 'cash' ? 'Cash' : 'QR/eSewa'}</div>
-                </div>
-              ))}
+            {/* Payment reminder */}
+            <div style={{ background: 'var(--amber-dim)', border: '1px solid var(--amber-glow)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>💳</span>
+              <span>Payment method selected when collecting bill</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -219,188 +204,40 @@ const POSPage = () => {
       </div>
 
       <style>{`
-        .pos-controls {
-          display: flex;
-          gap: 10px;
-          margin-bottom: 14px;
-        }
-        .pos-layout {
-          display: grid;
-          grid-template-columns: 1fr 360px;
-          gap: 14px;
-          height: calc(100vh - 168px);
-        }
-        .menu-panel {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
+        .pos-controls { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+        .pos-layout { display: grid; grid-template-columns: 1fr 360px; gap: 14px; height: calc(100vh - 168px); }
+        .menu-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
         .menu-top { padding: 12px; border-bottom: 1px solid var(--border); }
-        .cat-tabs {
-          display: flex;
-          gap: 6px;
-          padding: 10px 12px;
-          border-bottom: 1px solid var(--border);
-          overflow-x: auto;
-          scrollbar-width: none;
-          flex-shrink: 0;
-        }
+        .cat-tabs { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
         .cat-tabs::-webkit-scrollbar { display: none; }
-        .cat-btn {
-          padding: 6px 13px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-          white-space: nowrap;
-          cursor: pointer;
-          transition: var(--transition);
-          border: 1px solid var(--border2);
-          background: var(--card2);
-          color: var(--text3);
-          font-family: 'DM Sans', sans-serif;
-        }
+        .cat-btn { padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: var(--transition); border: 1px solid var(--border2); background: var(--card2); color: var(--text3); font-family: 'DM Sans', sans-serif; }
         .cat-btn.active { background: var(--amber); border-color: var(--amber); color: #1a0f00; }
         .cat-btn:hover:not(.active) { border-color: var(--amber); color: var(--amber); }
-        .items-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-          gap: 10px;
-          padding: 12px;
-          overflow-y: auto;
-          flex: 1;
-        }
-        .menu-card {
-          background: var(--card2);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 14px;
-          cursor: pointer;
-          transition: var(--transition);
-          position: relative;
-        }
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; padding: 12px; overflow-y: auto; flex: 1; }
+        .menu-card { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; cursor: pointer; transition: var(--transition); position: relative; }
         .menu-card:hover { border-color: var(--amber); transform: scale(1.02); box-shadow: 0 4px 16px rgba(212,134,42,0.15); }
         .menu-card:active { transform: scale(0.98); }
         .item-em { font-size: 26px; margin-bottom: 8px; }
         .item-nm { font-size: 13px; font-weight: 600; margin-bottom: 3px; color: var(--text); }
         .item-pr { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--amber); font-weight: 600; }
         .item-cat-lbl { font-size: 10px; color: var(--text3); margin-top: 2px; }
-        .add-btn {
-          position: absolute;
-          top: 8px; right: 8px;
-          width: 20px; height: 20px;
-          border-radius: 50%;
-          background: var(--amber);
-          color: #1a0f00;
-          font-size: 14px;
-          font-weight: 700;
-          display: flex; align-items: center; justify-content: center;
-          opacity: 0;
-          transition: opacity 0.15s;
-        }
+        .add-btn { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%; background: var(--amber); color: #1a0f00; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; }
         .menu-card:hover .add-btn { opacity: 1; }
-        .order-panel {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
-        .order-top {
-          padding: 14px;
-          border-bottom: 1px solid var(--border);
-          background: var(--card2);
-          flex-shrink: 0;
-        }
-        .cart-items {
-          flex: 1;
-          overflow-y: auto;
-          padding: 10px;
-        }
-        .cart-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px;
-          background: var(--card2);
-          border: 1px solid var(--border);
-          border-radius: var(--radius2);
-          margin-bottom: 6px;
-          animation: fadeUp 0.2s ease;
-        }
-        .qty-ctrl {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          background: var(--card);
-          border: 1px solid var(--border2);
-          border-radius: 6px;
-          padding: 3px 5px;
-        }
-        .qty-ctrl button {
-          width: 20px; height: 20px;
-          border-radius: 4px;
-          border: none;
-          background: var(--border2);
-          color: var(--text);
-          font-size: 14px;
-          cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          transition: var(--transition);
-        }
+        .order-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+        .order-top { padding: 14px; border-bottom: 1px solid var(--border); background: var(--card2); flex-shrink: 0; }
+        .cart-items { flex: 1; overflow-y: auto; padding: 10px; }
+        .cart-item { display: flex; align-items: center; gap: 8px; padding: 10px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius2); margin-bottom: 6px; animation: fadeUp 0.2s ease; }
+        .qty-ctrl { display: flex; align-items: center; gap: 5px; background: var(--card); border: 1px solid var(--border2); border-radius: 6px; padding: 3px 5px; }
+        .qty-ctrl button { width: 20px; height: 20px; border-radius: 4px; border: none; background: var(--border2); color: var(--text); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
         .qty-ctrl button:hover { background: var(--amber); color: #1a0f00; }
         .qty-ctrl span { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; min-width: 16px; text-align: center; color: var(--text); }
-        .order-footer-section {
-          border-top: 1px solid var(--border);
-          padding: 12px 14px;
-          background: var(--card2);
-          flex-shrink: 0;
-        }
+        .order-footer-section { border-top: 1px solid var(--border); padding: 12px 14px; background: var(--card2); flex-shrink: 0; }
         .totals-block { margin-bottom: 12px; }
-        .total-row-sm {
-          display: flex;
-          justify-content: space-between;
-          font-size: 12.5px;
-          color: var(--text3);
-          padding: 3px 0;
-        }
+        .total-row-sm { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text3); padding: 3px 0; }
         .total-row-sm span:last-child { font-family: 'DM Mono', monospace; color: var(--text2); }
-        .total-row-grand {
-          display: flex;
-          justify-content: space-between;
-          border-top: 1px solid var(--border);
-          margin-top: 7px;
-          padding-top: 9px;
-          font-weight: 700;
-          font-size: 15px;
-          color: var(--text);
-        }
+        .total-row-grand { display: flex; justify-content: space-between; border-top: 1px solid var(--border); margin-top: 7px; padding-top: 9px; font-weight: 700; font-size: 15px; color: var(--text); }
         .total-row-grand span:last-child { font-family: 'DM Mono', monospace; color: var(--amber); font-size: 18px; }
-        .payment-methods {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          margin-bottom: 10px;
-        }
-        .pay-method {
-          padding: 10px;
-          border-radius: var(--radius2);
-          border: 1px solid var(--border2);
-          background: var(--card);
-          cursor: pointer;
-          text-align: center;
-          transition: var(--transition);
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text3);
-        }
-        .pay-method:hover, .pay-method.active { border-color: var(--amber); background: var(--amber-dim); color: var(--amber); }
-        @media (max-width: 900px) {
-          .pos-layout { grid-template-columns: 1fr; height: auto; }
-        }
+        @media (max-width: 900px) { .pos-layout { grid-template-columns: 1fr; height: auto; } }
       `}</style>
     </div>
   );

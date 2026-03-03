@@ -97,16 +97,14 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Auto-generate orderId before save
-orderSchema.pre('save', async function (next) {
+orderSchema.pre('save', async function () {
   if (!this.orderId) {
     const count = await mongoose.model('Order').countDocuments();
     this.orderId = `ORD-${String(count + 1001).padStart(4, '0')}`;
   }
-  // Recalculate item subtotals
   this.items.forEach(item => {
     item.subtotal = item.price * item.qty;
   });
-  next();
 });
 
 // Virtual: profit (if cost data available)
@@ -120,7 +118,7 @@ orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ orderStatus: 1 });
 orderSchema.index({ table: 1, paymentStatus: 1 });
 orderSchema.index({ cashier: 1 });
-orderSchema.index({ orderId: 1 });
+// orderSchema.index({ orderId: 1 });
 orderSchema.index({ paymentMethod: 1, createdAt: -1 });
 
 // Compound index for dashboard queries
