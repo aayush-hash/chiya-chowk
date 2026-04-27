@@ -246,3 +246,56 @@
 {"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-03 17:07:34"}
 {"level":"info","message":"MongoDB Connected: localhost","service":"chiya-chowk-api","timestamp":"2026-03-03 17:07:34"}
 {"level":"info","message":"QR Order placed: ORD-1049 Table 1 by jojo","service":"chiya-chowk-api","timestamp":"2026-03-03 17:08:07"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-03-13 21:10:53"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","service":"chiya-chowk-api","timestamp":"2026-03-13 21:10:58"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-04-27 18:32:23"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","service":"chiya-chowk-api","timestamp":"2026-04-27 18:32:28"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-04-27 20:03:46"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","service":"chiya-chowk-api","timestamp":"2026-04-27 20:03:51"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-04-27 20:05:23"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:05:23"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:05:56"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:05:59"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:06:16"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:06:19"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-04-27 20:09:08"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-04-27 20:09:24"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:09:24"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:13:33"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:13:43"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:13:58"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:09"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:43"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:52"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:55"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:56"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:15:02"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:15:11"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:15:24"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:22"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:27"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:44"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:25:39"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-04-27 20:29:24"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-04-27 20:40:43"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:40:43"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-04-27 20:41:02"}
+{"level":"info","message":"QR token generated for Table 1 by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 20:49:43"}
+{"level":"info","message":"QR Order placed: ORD-1031 Table 1 by ramey","service":"chiya-chowk-api","timestamp":"2026-04-27 20:50:37"}
+{"level":"info","message":"QR Order ORD-1031 status → preparing by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 20:51:00"}
+{"level":"info","message":"QR Order ORD-1031 status → ready by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 20:51:11"}
+{"level":"info","message":"QR Order ORD-1031 status → served by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 20:51:26"}
+{"level":"info","message":"QR Order ORD-1031 status → completed by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 20:51:46"}
+{"level":"info","message":"User logged out: admin","service":"chiya-chowk-api","timestamp":"2026-04-27 20:56:19"}
+{"level":"info","message":"User logged in: staff (staff)","service":"chiya-chowk-api","timestamp":"2026-04-27 20:56:38"}
+{"level":"info","message":"Order paid: ORD-1031 by staff","service":"chiya-chowk-api","timestamp":"2026-04-27 20:57:06"}
+{"level":"info","message":"Table 1 status set to available by staff","service":"chiya-chowk-api","timestamp":"2026-04-27 20:57:16"}
+{"level":"info","message":"Order created: ORD-1032 by staff","service":"chiya-chowk-api","timestamp":"2026-04-27 20:58:47"}
+{"level":"info","message":"Items added to order ORD-1032 by staff","service":"chiya-chowk-api","timestamp":"2026-04-27 21:05:17"}
+{"level":"info","message":"User logged out: staff","service":"chiya-chowk-api","timestamp":"2026-04-27 22:53:22"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-04-27 22:53:24"}
+{"level":"info","message":"QR token generated for Table 10 by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:54:22"}
+{"level":"info","message":"Inventory created: oil by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:56:54"}
+{"level":"info","message":"Stock adjusted: oil 10 → 15 by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:57:15"}
+{"level":"info","message":"Inventory created: sugar by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:58:25"}
+{"level":"info","message":"Order created: ORD-1033 by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:58:42"}
