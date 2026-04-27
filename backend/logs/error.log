@@ -51,3 +51,25 @@
 {"level":"error","message":"500 - next is not a function - /api/orders - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-03-02 10:56:20"}
 {"level":"error","message":"500 - next is not a function - /api/orders - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-03-02 10:56:29"}
 {"level":"error","message":"500 - done is not a function - /api/orders - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-03-02 10:59:42"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","service":"chiya-chowk-api","timestamp":"2026-03-13 21:10:58"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","service":"chiya-chowk-api","timestamp":"2026-04-27 18:32:28"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","service":"chiya-chowk-api","timestamp":"2026-04-27 20:03:51"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:05:56"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:05:59"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:06:16"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:06:19"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:13:33"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:13:43"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:13:58"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:09"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:43"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:52"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:55"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:14:56"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:15:02"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:15:11"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:15:24"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:22"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:27"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:44"}
+{"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:25:39"}
