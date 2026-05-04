@@ -2,7 +2,6 @@ import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-// Public axios — no auth token needed. CRA proxy in package.json forwards /api → localhost:5000
 const api = axios.create({ baseURL: "/api", timeout: 15000 });
 
 // ===== STATUS TRACKER =====
@@ -23,7 +22,7 @@ const OrderTracker = ({ orderId, onBack }) => {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 8000); // poll every 8s
+    const interval = setInterval(fetchStatus, 8000);
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
@@ -76,7 +75,7 @@ const OrderTracker = ({ orderId, onBack }) => {
           </p>
         </div>
 
-        {/* Progress bar — only show if not cancelled */}
+        {/* Progress bar */}
         {!isCancelled && (
           <div style={{ marginBottom: 28 }}>
             <div
@@ -86,7 +85,6 @@ const OrderTracker = ({ orderId, onBack }) => {
                 position: "relative",
               }}
             >
-              {/* connector line */}
               <div
                 style={{
                   position: "absolute",
@@ -210,7 +208,7 @@ const OrderTracker = ({ orderId, onBack }) => {
           ))}
         </div>
 
-        {/* Total */}
+        {/* Total — no tax row */}
         <div style={styles.totalBox}>
           <div
             style={{
@@ -224,7 +222,7 @@ const OrderTracker = ({ orderId, onBack }) => {
             <span>Subtotal</span>
             <span>Rs. {order.subtotal}</span>
           </div>
-          {order.taxAmount > 0 && (
+          {order.serviceCharge > 0 && (
             <div
               style={{
                 display: "flex",
@@ -234,8 +232,8 @@ const OrderTracker = ({ orderId, onBack }) => {
                 marginBottom: 4,
               }}
             >
-              <span>VAT (13%)</span>
-              <span>Rs. {order.taxAmount}</span>
+              <span>Service Charge</span>
+              <span>Rs. {order.serviceCharge}</span>
             </div>
           )}
           <div
@@ -278,7 +276,7 @@ const OrderTracker = ({ orderId, onBack }) => {
 // ===== MAIN QR MENU PAGE =====
 const QRMenuPage = () => {
   const { token } = useParams();
-  const [phase, setPhase] = useState("loading"); // loading | info | menu | tracking
+  const [phase, setPhase] = useState("loading");
   const [tableInfo, setTableInfo] = useState(null);
   const [menu, setMenu] = useState({});
   const [categories, setCategories] = useState([]);
@@ -293,7 +291,6 @@ const QRMenuPage = () => {
   const [showCart, setShowCart] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState(null);
-
   const [existingOrder, setExistingOrder] = useState(null);
 
   useEffect(() => {
@@ -306,13 +303,12 @@ const QRMenuPage = () => {
         setSettings(data.settings);
         setActiveCategory(data.categories[0] || "");
 
-        // If table already has an active order, pre-fill customer info and go to tracking
         if (data.existingOrder) {
           setExistingOrder(data.existingOrder);
           setCustomerName(data.existingOrder.customerName || "");
           setCustomerPhone(data.existingOrder.customerPhone || "");
           setPlacedOrderId(data.existingOrder.orderId);
-          setPhase("existing"); // show existing order screen
+          setPhase("existing");
         } else {
           setPhase("info");
         }
@@ -363,11 +359,10 @@ const QRMenuPage = () => {
 
   const cartTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const cartCount = cart.reduce((s, c) => s + c.qty, 0);
-  const tax = Math.round((cartTotal * (settings.vatRate || 13)) / 100);
   const serviceCharge = settings.enableServiceCharge
     ? Math.round((cartTotal * (settings.serviceChargeRate || 0)) / 100)
     : 0;
-  const grandTotal = cartTotal + tax + serviceCharge;
+  const grandTotal = cartTotal + serviceCharge;
 
   const filteredItems = (cat) => {
     const items = menu[cat] || [];
@@ -390,7 +385,6 @@ const QRMenuPage = () => {
     setPlacing(true);
     try {
       if (existingOrder && existingOrder._id) {
-        // Add to existing order using public add-items endpoint
         await api.post(`/qr/order/${token}/add-items`, {
           orderId: existingOrder._id,
           items: cart.map((c) => ({
@@ -533,7 +527,6 @@ const QRMenuPage = () => {
             </div>
           </div>
 
-          {/* Existing items list */}
           <div style={{ marginBottom: 20 }}>
             {existingOrder.items?.map((item, i) => (
               <div
@@ -627,10 +620,7 @@ const QRMenuPage = () => {
             <div style={styles.infoRow}>
               <span style={styles.infoLabel}>📍 Location</span>
               <span
-                style={{
-                  ...styles.infoValue,
-                  textTransform: "capitalize",
-                }}
+                style={{ ...styles.infoValue, textTransform: "capitalize" }}
               >
                 {tableInfo?.location}
               </span>
@@ -742,7 +732,6 @@ const QRMenuPage = () => {
           </button>
         </div>
 
-        {/* Search */}
         <div style={{ position: "relative", marginBottom: 10 }}>
           <span
             style={{
@@ -769,7 +758,6 @@ const QRMenuPage = () => {
           />
         </div>
 
-        {/* Category tabs */}
         {!search && (
           <div
             style={{
@@ -787,7 +775,7 @@ const QRMenuPage = () => {
                 style={{
                   padding: "6px 14px",
                   borderRadius: 20,
-                  border: "none",
+                  border: `1px solid ${activeCategory === cat ? "#d4862a" : "#2a1f14"}`,
                   whiteSpace: "nowrap",
                   background: activeCategory === cat ? "#d4862a" : "#1a1008",
                   color: activeCategory === cat ? "#1a0f00" : "#a07850",
@@ -795,8 +783,6 @@ const QRMenuPage = () => {
                   fontWeight: 600,
                   cursor: "pointer",
                   flexShrink: 0,
-                  // eslint-disable-next-line no-dupe-keys
-                  border: `1px solid ${activeCategory === cat ? "#d4862a" : "#2a1f14"}`,
                 }}
               >
                 {cat}
@@ -900,7 +886,6 @@ const QRMenuPage = () => {
               </button>
             </div>
 
-            {/* Cart items */}
             <div
               style={{ maxHeight: 220, overflowY: "auto", marginBottom: 16 }}
             >
@@ -963,7 +948,6 @@ const QRMenuPage = () => {
               ))}
             </div>
 
-            {/* Note */}
             <div style={{ marginBottom: 12 }}>
               <label style={{ ...styles.formLabel, fontSize: 12 }}>
                 Special note (optional)
@@ -981,7 +965,7 @@ const QRMenuPage = () => {
               />
             </div>
 
-            {/* Totals */}
+            {/* Totals — no tax row */}
             <div style={{ ...styles.totalBox, marginBottom: 16 }}>
               <div
                 style={{
@@ -994,18 +978,6 @@ const QRMenuPage = () => {
               >
                 <span>Subtotal</span>
                 <span>Rs. {cartTotal}</span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 12,
-                  color: "#a07850",
-                  marginBottom: 4,
-                }}
-              >
-                <span>VAT ({settings.vatRate}%)</span>
-                <span>Rs. {tax}</span>
               </div>
               {serviceCharge > 0 && (
                 <div
@@ -1356,11 +1328,7 @@ const styles = {
     borderBottom: "1px solid #1a1008",
     fontSize: 13,
   },
-  emptyState: {
-    textAlign: "center",
-    padding: "40px 20px",
-    color: "#6b5040",
-  },
+  emptyState: { textAlign: "center", padding: "40px 20px", color: "#6b5040" },
   spinner: {
     width: 32,
     height: 32,
@@ -1371,7 +1339,6 @@ const styles = {
   },
 };
 
-// Inject global styles
 if (typeof document !== "undefined") {
   const style = document.createElement("style");
   style.textContent = `

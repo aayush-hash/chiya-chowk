@@ -3,16 +3,21 @@ const MenuItem = require('../models/MenuItem');
 const Table = require('../models/Table');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
-// const { deductStockForOrder } = require('./inventoryController');
+
+// ─── helper: compute order total (no tax, no service charge) ──────────────────
+const calcTotal = (subtotal, discount = 0) => Math.max(0, subtotal - discount);
 
 // @desc    Create order
 // @route   POST /api/orders
 // @access  Private
 exports.createOrder = async (req, res, next) => {
   try {
-    const { items, tableId, tableNumber, orderType, paymentMethod, discount, discountType, note, customerName, customerPhone, amountReceived } = req.body;
+    const {
+      items, tableId, tableNumber, orderType,
+      paymentMethod, discount, discountType,
+      note, customerName, customerPhone, amountReceived,
+    } = req.body;
 
-    // Manual items validation
     if (!items || !Array.isArray(items) || items.length === 0) {
       return next(new AppError('Order must have at least one item', 400));
     }
@@ -21,14 +26,15 @@ exports.createOrder = async (req, res, next) => {
       if (!item.qty || item.qty < 1) return next(new AppError('Each item must have a valid quantity', 400));
     }
 
-    // Validate and enrich items from DB (prevent price manipulation)
     const enrichedItems = [];
     let subtotal = 0;
 
     for (const item of items) {
       const menuItem = await MenuItem.findById(item.menuItem).lean();
       if (!menuItem) return next(new AppError(`Menu item not found: ${item.menuItem}`, 404));
-      if (!menuItem.isAvailable || menuItem.isDeleted) return next(new AppError(`${menuItem.name} is not available`, 400));
+      if (!menuItem.isAvailable || menuItem.isDeleted) {
+        return next(new AppError(`${menuItem.name} is not available`, 400));
+      }
 
       const itemSubtotal = menuItem.price * item.qty;
       subtotal += itemSubtotal;
@@ -37,35 +43,23 @@ exports.createOrder = async (req, res, next) => {
         name: menuItem.name,
         emoji: menuItem.emoji,
         category: menuItem.category,
-        price: menuItem.price, // Always use DB price, not client price
+        price: menuItem.price,
         qty: item.qty,
         subtotal: itemSubtotal,
         note: item.note || '',
       });
 
-      // Increment sold count
       await MenuItem.findByIdAndUpdate(menuItem._id, { $inc: { soldCount: item.qty } });
     }
 
-    // Get settings for tax rate
-    const Settings = require('../models/Settings');
-    const settings = await Settings.findOne();
-    const taxRate = settings?.vatRate || 13;
-    const serviceChargeRate = settings?.enableServiceCharge ? (settings?.serviceChargeRate || 0) : 0;
-
+    // Discount calculation — no tax, no service charge
     const discountAmount = discountType === 'percentage'
       ? Math.round(subtotal * (discount || 0) / 100)
       : (discount || 0);
 
-    const taxableAmount = Math.max(0, subtotal - discountAmount);
-    const taxAmount = Math.round(taxableAmount * taxRate / 100);
-    const serviceCharge = Math.round(taxableAmount * serviceChargeRate / 100);
-    const total = taxableAmount + taxAmount + serviceCharge;
+    const total = calcTotal(subtotal, discountAmount);
     const changeGiven = amountReceived ? Math.max(0, amountReceived - total) : 0;
 
-
-
-    
     const order = await Order.create({
       table: tableId || null,
       tableNumber: tableNumber || null,
@@ -74,9 +68,9 @@ exports.createOrder = async (req, res, next) => {
       subtotal,
       discount: discountAmount,
       discountType: discountType || 'fixed',
-      taxRate,
-      taxAmount,
-      serviceCharge,
+      taxRate: 0,
+      taxAmount: 0,
+      serviceCharge: 0,
       total,
       paymentMethod: paymentMethod || 'pending',
       paymentStatus: paymentMethod && paymentMethod !== 'pending' ? 'paid' : 'unpaid',
@@ -91,7 +85,6 @@ exports.createOrder = async (req, res, next) => {
       paidAt: (paymentMethod && paymentMethod !== 'pending') ? new Date() : null,
     });
 
-    // Update table status if dine-in
     if (tableId) {
       await Table.findByIdAndUpdate(tableId, {
         status: 'occupied',
@@ -99,13 +92,12 @@ exports.createOrder = async (req, res, next) => {
       });
     }
 
-// Auto-deduct inventory stock (non-blocking)
-try {
-  const { deductStockForOrder } = require('./inventoryController');
-  deductStockForOrder(order.orderId, enrichedItems);
-} catch (e) {
-  logger.warn('Inventory deduction skipped: ' + e.message);
-}
+    try {
+      const { deductStockForOrder } = require('./inventoryController');
+      deductStockForOrder(order.orderId, enrichedItems);
+    } catch (e) {
+      logger.warn('Inventory deduction skipped: ' + e.message);
+    }
 
     const populatedOrder = await Order.findById(order._id).populate('cashier', 'name username');
 
@@ -121,7 +113,11 @@ try {
 // @access  Private
 exports.getOrders = async (req, res, next) => {
   try {
-    const { status, payment, date, startDate, endDate, tableNumber, page = 1, limit = 50, search } = req.query;
+    const {
+      status, payment, date, startDate, endDate,
+      tableNumber, page = 1, limit = 50, search,
+      customerName, customerPhone,
+    } = req.query;
 
     const filter = {};
 
@@ -135,7 +131,6 @@ exports.getOrders = async (req, res, next) => {
     if (payment && payment !== 'all') filter.paymentMethod = payment;
     if (tableNumber) filter.tableNumber = parseInt(tableNumber);
 
-    // Date filtering
     if (date) {
       const d = new Date(date);
       d.setHours(0, 0, 0, 0);
@@ -152,13 +147,19 @@ exports.getOrders = async (req, res, next) => {
       }
     }
 
+    // General search across orderId, customerName, cashierName, customerPhone
     if (search) {
       filter.$or = [
         { orderId: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
+        { customerPhone: { $regex: search, $options: 'i' } },
         { cashierName: { $regex: search, $options: 'i' } },
       ];
     }
+
+    // Dedicated customer filters
+    if (customerName) filter.customerName = { $regex: customerName, $options: 'i' };
+    if (customerPhone) filter.customerPhone = { $regex: customerPhone, $options: 'i' };
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const total = await Order.countDocuments(filter);
@@ -217,7 +218,6 @@ exports.markAsPaid = async (req, res, next) => {
     order.changeGiven = Math.max(0, (amountReceived || order.total) - order.total);
     await order.save();
 
-    // Free the table if occupied
     if (order.table) {
       await Table.findByIdAndUpdate(order.table, {
         status: 'dirty',
@@ -246,7 +246,6 @@ exports.cancelOrder = async (req, res, next) => {
     order.cancelledAt = new Date();
     order.cancelReason = reason || 'No reason provided';
 
-    // Revert sold counts
     for (const item of order.items) {
       await MenuItem.findByIdAndUpdate(item.menuItem, { $inc: { soldCount: -item.qty } });
     }
@@ -273,7 +272,11 @@ exports.updateOrderStatus = async (req, res, next) => {
     const validStatuses = ['pending', 'preparing', 'ready', 'served', 'completed', 'cancelled'];
     if (!validStatuses.includes(orderStatus)) return next(new AppError('Invalid status', 400));
 
-    const order = await Order.findByIdAndUpdate(req.params.id, { orderStatus }, { new: true, runValidators: true });
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { orderStatus },
+      { new: true, runValidators: true },
+    );
     if (!order) return next(new AppError('Order not found', 404));
 
     res.json({ success: true, order });
@@ -297,7 +300,6 @@ exports.getDashboardStats = async (req, res, next) => {
     const yesterdayEnd = new Date(today);
     yesterdayEnd.setMilliseconds(yesterdayEnd.getMilliseconds() - 1);
 
-    // Today's aggregation
     const [todayStats] = await Order.aggregate([
       { $match: { createdAt: { $gte: today, $lte: todayEnd } } },
       {
@@ -314,13 +316,11 @@ exports.getDashboardStats = async (req, res, next) => {
       },
     ]);
 
-    // Yesterday's revenue for comparison
     const [yesterdayStats] = await Order.aggregate([
       { $match: { createdAt: { $gte: yesterday, $lte: yesterdayEnd }, paymentStatus: 'paid' } },
       { $group: { _id: null, revenue: { $sum: '$total' } } },
     ]);
 
-    // Hourly data for today
     const hourlyData = await Order.aggregate([
       { $match: { createdAt: { $gte: today, $lte: todayEnd }, paymentStatus: 'paid' } },
       {
@@ -333,7 +333,6 @@ exports.getDashboardStats = async (req, res, next) => {
       { $sort: { '_id': 1 } },
     ]);
 
-    // Top selling items (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const topItems = await Order.aggregate([
@@ -352,7 +351,6 @@ exports.getDashboardStats = async (req, res, next) => {
       { $limit: 8 },
     ]);
 
-    // Table occupancy
     const [tableStats] = await Table.aggregate([
       { $match: { isActive: true } },
       {
@@ -415,7 +413,6 @@ exports.addItemsToOrder = async (req, res, next) => {
     if (!order) return next(new AppError('Order not found', 404));
     if (order.paymentStatus === 'paid') return next(new AppError('Cannot add items to a paid order', 400));
 
-    // Enrich and add each item
     for (const item of items) {
       const menuItem = await MenuItem.findById(item.menuItem).lean();
       if (!menuItem || !menuItem.isAvailable || menuItem.isDeleted) {
@@ -423,7 +420,6 @@ exports.addItemsToOrder = async (req, res, next) => {
       }
       const existing = order.items.find(i => i.menuItem.toString() === menuItem._id.toString());
       if (existing) {
-        // Increase qty if item already in order
         existing.qty += item.qty;
         existing.subtotal = existing.price * existing.qty;
       } else {
@@ -441,11 +437,12 @@ exports.addItemsToOrder = async (req, res, next) => {
       await MenuItem.findByIdAndUpdate(menuItem._id, { $inc: { soldCount: item.qty } });
     }
 
-    // Recalculate totals
+    // Recalculate — no tax, no service charge
     order.subtotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
-    const taxableAmount = Math.max(0, order.subtotal - (order.discount || 0));
-    order.taxAmount = Math.round(taxableAmount * order.taxRate / 100);
-    order.total = taxableAmount + order.taxAmount + (order.serviceCharge || 0);
+    order.taxAmount = 0;
+    order.taxRate = 0;
+    order.serviceCharge = 0;
+    order.total = calcTotal(order.subtotal, order.discount || 0);
 
     await order.save();
 
@@ -490,13 +487,11 @@ exports.getSalesReport = async (req, res, next) => {
           qrRevenue: { $sum: { $cond: [{ $and: [{ $eq: ['$paymentStatus', 'paid'] }, { $eq: ['$paymentMethod', 'qr'] }] }, '$total', 0] } },
           unpaidAmount: { $sum: { $cond: [{ $eq: ['$paymentStatus', 'unpaid'] }, '$total', 0] } },
           avgOrder: { $avg: { $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$total', null] } },
-          taxCollected: { $sum: { $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$taxAmount', 0] } },
         },
       },
       { $sort: { _id: 1 } },
     ]);
 
-    // Category breakdown
     const categoryStats = await Order.aggregate([
       { $match: { createdAt: { $gte: start, $lte: end }, paymentStatus: 'paid' } },
       { $unwind: '$items' },
@@ -511,7 +506,6 @@ exports.getSalesReport = async (req, res, next) => {
       { $sort: { revenue: -1 } },
     ]);
 
-    // Summary
     const [summary] = await Order.aggregate([
       { $match: { createdAt: { $gte: start, $lte: end } } },
       {
@@ -522,7 +516,6 @@ exports.getSalesReport = async (req, res, next) => {
           totalCash: { $sum: { $cond: [{ $and: [{ $eq: ['$paymentStatus', 'paid'] }, { $eq: ['$paymentMethod', 'cash'] }] }, '$total', 0] } },
           totalQR: { $sum: { $cond: [{ $and: [{ $eq: ['$paymentStatus', 'paid'] }, { $eq: ['$paymentMethod', 'qr'] }] }, '$total', 0] } },
           totalUnpaid: { $sum: { $cond: [{ $eq: ['$paymentStatus', 'unpaid'] }, '$total', 0] } },
-          totalTax: { $sum: { $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$taxAmount', 0] } },
           paidOrders: { $sum: { $cond: [{ $eq: ['$paymentStatus', 'paid'] }, 1, 0] } },
         },
       },
@@ -536,8 +529,7 @@ exports.getSalesReport = async (req, res, next) => {
         categoryStats,
         period: { start, end, groupBy },
       },
-    }); 
-    console.log('CREATE ORDER body:', JSON.stringify(req.body, null, 2));
+    });
   } catch (error) {
     next(error);
   }

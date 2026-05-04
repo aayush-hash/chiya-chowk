@@ -49,9 +49,11 @@ const orderSchema = new mongoose.Schema({
     enum: ['fixed', 'percentage'],
     default: 'fixed',
   },
-  taxRate: { type: Number, default: 13 },
-  taxAmount: { type: Number, default: 0, min: 0 },
-  serviceCharge: { type: Number, default: 0, min: 0 },
+  // Tax and service charge are kept in schema for backward compatibility
+  // but are always set to 0 — price shown on menu is the final price
+  taxRate: { type: Number, default: 0 },
+  taxAmount: { type: Number, default: 0 },
+  serviceCharge: { type: Number, default: 0 },
   total: { type: Number, required: true, min: 0 },
   paymentMethod: {
     type: String,
@@ -74,8 +76,8 @@ const orderSchema = new mongoose.Schema({
     default: null,
   },
   cashierName: { type: String },
-  customerName: { type: String, trim: true, maxlength: 100 },
-  customerPhone: { type: String, trim: true },
+  customerName: { type: String, trim: true, maxlength: 100, default: '' },
+  customerPhone: { type: String, trim: true, default: '' },
   note: {
     type: String,
     trim: true,
@@ -102,14 +104,14 @@ orderSchema.pre('save', async function () {
     const count = await mongoose.model('Order').countDocuments();
     this.orderId = `ORD-${String(count + 1001).padStart(4, '0')}`;
   }
+  // Recalculate subtotals per item
   this.items.forEach(item => {
     item.subtotal = item.price * item.qty;
   });
-});
-
-// Virtual: profit (if cost data available)
-orderSchema.virtual('profit').get(function () {
-  return this.total - this.taxAmount - this.serviceCharge;
+  // Always zero out tax and service charge
+  this.taxRate = 0;
+  this.taxAmount = 0;
+  this.serviceCharge = 0;
 });
 
 // Indexes for fast queries
@@ -118,9 +120,9 @@ orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ orderStatus: 1 });
 orderSchema.index({ table: 1, paymentStatus: 1 });
 orderSchema.index({ cashier: 1 });
-// orderSchema.index({ orderId: 1 });
 orderSchema.index({ paymentMethod: 1, createdAt: -1 });
-
+orderSchema.index({ customerName: 1 });
+orderSchema.index({ customerPhone: 1 });
 // Compound index for dashboard queries
 orderSchema.index({ createdAt: -1, paymentStatus: 1, paymentMethod: 1 });
 

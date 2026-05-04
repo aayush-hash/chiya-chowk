@@ -54,7 +54,6 @@ exports.scanQR = async (req, res, next) => {
     const table = await Table.findOne({ qrToken: req.params.token, isActive: true }).lean();
     if (!table) return next(new AppError('Invalid QR code. Please ask staff for help.', 404));
 
-    // Get menu grouped by category
     const menuItems = await MenuItem.find({ isAvailable: true, isDeleted: false })
       .select('name emoji category price description preparationTime tags')
       .sort({ category: 1, name: 1 })
@@ -66,10 +65,8 @@ exports.scanQR = async (req, res, next) => {
       menu[cat] = menuItems.filter(m => m.category === cat);
     });
 
-    // Get cafe settings
     const settings = await Settings.findOne().lean();
 
-    // Return existing active order if table is occupied
     const existingOrder = await Order.findOne({
       table: table._id,
       paymentStatus: 'unpaid',
@@ -89,7 +86,6 @@ exports.scanQR = async (req, res, next) => {
       categories,
       settings: {
         cafeName: settings?.cafeName || 'Chiya Chowk',
-        vatRate: settings?.vatRate || 13,
         enableServiceCharge: settings?.enableServiceCharge || false,
         serviceChargeRate: settings?.serviceChargeRate || 0,
         currency: 'Rs.',
@@ -102,7 +98,7 @@ exports.scanQR = async (req, res, next) => {
         customerPhone: existingOrder.customerPhone,
         items: existingOrder.items,
         subtotal: existingOrder.subtotal,
-        taxAmount: existingOrder.taxAmount,
+        taxAmount: 0,
         serviceCharge: existingOrder.serviceCharge,
         total: existingOrder.total,
         createdAt: existingOrder.createdAt,
@@ -130,7 +126,6 @@ exports.placeQROrder = async (req, res, next) => {
     const table = await Table.findOne({ qrToken: req.params.token, isActive: true });
     if (!table) return next(new AppError('Invalid QR code', 404));
 
-    // Validate and enrich items from DB (never trust client prices)
     const enrichedItems = [];
     let subtotal = 0;
     for (const item of items) {
@@ -151,17 +146,13 @@ exports.placeQROrder = async (req, res, next) => {
         note: item.note || '',
       });
 
-      // Increment sold count
       await MenuItem.findByIdAndUpdate(menuItem._id, { $inc: { soldCount: item.qty } });
     }
 
-    // Get tax settings
     const settings = await Settings.findOne();
-    const taxRate = settings?.vatRate || 13;
     const serviceChargeRate = settings?.enableServiceCharge ? (settings?.serviceChargeRate || 0) : 0;
-    const taxAmount = Math.round(subtotal * taxRate / 100);
     const serviceCharge = Math.round(subtotal * serviceChargeRate / 100);
-    const total = subtotal + taxAmount + serviceCharge;
+    const total = subtotal + serviceCharge;
 
     const order = await Order.create({
       table: table._id,
@@ -171,8 +162,8 @@ exports.placeQROrder = async (req, res, next) => {
       subtotal,
       discount: 0,
       discountType: 'fixed',
-      taxRate,
-      taxAmount,
+      taxRate: 0,
+      taxAmount: 0,
       serviceCharge,
       total,
       paymentMethod: 'pending',
@@ -187,7 +178,6 @@ exports.placeQROrder = async (req, res, next) => {
       source: 'qr',
     });
 
-    // Mark table as occupied
     await Table.findByIdAndUpdate(table._id, { status: 'occupied', currentOrder: order._id });
 
     logger.info(`QR Order placed: ${order.orderId} Table ${table.number} by ${customerName}`);
@@ -201,7 +191,7 @@ exports.placeQROrder = async (req, res, next) => {
         tableNumber: table.number,
         items: enrichedItems,
         subtotal,
-        taxAmount,
+        taxAmount: 0,
         serviceCharge,
         total,
         orderStatus: order.orderStatus,
@@ -238,6 +228,7 @@ exports.trackOrder = async (req, res, next) => {
       success: true,
       order: {
         ...order,
+        taxAmount: 0,
         statusInfo: statusMessages[order.orderStatus] || statusMessages.pending,
       },
     });
@@ -326,11 +317,12 @@ exports.addItemsToQROrder = async (req, res, next) => {
       await MenuItem.findByIdAndUpdate(menuItem._id, { $inc: { soldCount: item.qty } });
     }
 
-    // Recalculate totals
+    // Recalculate totals — no tax
     order.subtotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
     const taxableAmount = Math.max(0, order.subtotal - (order.discount || 0));
-    order.taxAmount = Math.round(taxableAmount * order.taxRate / 100);
-    order.total = taxableAmount + order.taxAmount + (order.serviceCharge || 0);
+    order.taxAmount = 0;
+    order.taxRate = 0;
+    order.total = taxableAmount + (order.serviceCharge || 0);
 
     await order.save();
 

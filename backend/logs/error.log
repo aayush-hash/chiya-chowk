@@ -73,3 +73,4 @@
 {"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:27"}
 {"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:44"}
 {"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:25:39"}
+{"level":"error","message":"500 - Validation failed: price: Price seems too high - /api/menu/69f766c25042a1ebdb52575a - PUT - ::1","service":"chiya-chowk-api","timestamp":"2026-05-03 22:44:48"}

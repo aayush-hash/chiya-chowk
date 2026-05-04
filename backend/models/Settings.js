@@ -6,7 +6,7 @@ const settingsSchema = new mongoose.Schema({
   phone: { type: String, default: '+977-01-000000', trim: true },
   email: { type: String, default: '', trim: true },
   vatNumber: { type: String, default: '', trim: true },
-  vatRate: { type: Number, default: 13, min: 0, max: 100 },
+  // vatRate: { type: Number, default: 13, min: 0, max: 100 },
   serviceChargeRate: { type: Number, default: 10, min: 0, max: 100 },
   currency: { type: String, default: 'NPR' },
   currencySymbol: { type: String, default: 'Rs.' },

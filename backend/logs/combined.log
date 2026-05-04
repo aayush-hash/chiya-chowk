@@ -299,3 +299,16 @@
 {"level":"info","message":"Stock adjusted: oil 10 → 15 by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:57:15"}
 {"level":"info","message":"Inventory created: sugar by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:58:25"}
 {"level":"info","message":"Order created: ORD-1033 by admin","service":"chiya-chowk-api","timestamp":"2026-04-27 22:58:42"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-03 21:14:46"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-03 21:14:46"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-03 21:15:25"}
+{"level":"error","message":"500 - Validation failed: price: Price seems too high - /api/menu/69f766c25042a1ebdb52575a - PUT - ::1","service":"chiya-chowk-api","timestamp":"2026-05-03 22:44:48"}
+{"level":"info","message":"Menu item updated: Ginger Teaaaa by admin","service":"chiya-chowk-api","timestamp":"2026-05-03 22:44:57"}
+{"level":"info","message":"Menu item updated: Ginger Tea by admin","service":"chiya-chowk-api","timestamp":"2026-05-03 22:46:10"}
+{"level":"info","message":"Menu item updated: Hookah Cloud by admin","service":"chiya-chowk-api","timestamp":"2026-05-03 22:46:29"}
+{"level":"info","message":"Order created: ORD-1031 by admin","service":"chiya-chowk-api","timestamp":"2026-05-03 22:48:38"}
+{"level":"info","message":"Items added to order ORD-1031 by admin","service":"chiya-chowk-api","timestamp":"2026-05-03 22:48:56"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-04 20:18:24"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-04 20:18:24"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-04 20:22:18"}
+{"level":"info","message":"Order created: ORD-1032 by admin","service":"chiya-chowk-api","timestamp":"2026-05-04 20:39:12"}
