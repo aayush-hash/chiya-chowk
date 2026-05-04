@@ -28,12 +28,12 @@ const inventorySchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Dairy', 'Tea & Coffee', 'Spices', 'Flour & Grains', 'Vegetables', 'Beverages', 'Packaging', 'Other'],
+    enum: ['Dairy', 'Tea & Coffee', 'Spices', 'Flour & Grains', 'Vegetables', 'Meat', 'Beverages', 'Packaging', 'Hookah', 'Other'],
     default: 'Other',
   },
   unit: {
     type: String,
-    enum: ['kg', 'g', 'liters', 'ml', 'pieces', 'packets', 'boxes', 'bottles'],
+    enum: ['kg', 'g', 'liters', 'ml', 'pieces', 'packets', 'packs', 'boxes', 'bottles', 'cans'],
     required: [true, 'Unit is required'],
   },
   currentStock: {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { menuAPI, orderAPI, tableAPI } from '../services/api';
+import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { menuAPI, orderAPI, tableAPI } from '../services/api';
 
 const POSPage = () => {
   const [menuItems, setMenuItems] = useState([]);
@@ -13,6 +13,8 @@ const POSPage = () => {
   const [orderType, setOrderType] = useState('dine-in');
   const [discount, setDiscount] = useState('');
   const [note, setNote] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,26 +43,24 @@ const POSPage = () => {
     return matchesCat && matchesSearch;
   });
 
- const addToCart = useCallback((item) => {
-  console.log('Adding item:', item); // temp debug
-  setCart(prev => {
-    const id = item._id || item.id; // handle both _id and id
-    const existing = prev.find(c => c.menuItem === id);
-    if (existing) return prev.map(c => c.menuItem === id ? { ...c, qty: c.qty + 1 } : c);
-    return [...prev, { menuItem: id, name: item.name, emoji: item.emoji, price: item.price, qty: 1 }];
-  });
-  toast.success(`${item.emoji} Added`, { duration: 1200, position: 'bottom-right' });
-}, []);
+  const addToCart = useCallback((item) => {
+    setCart(prev => {
+      const id = item._id || item.id;
+      const existing = prev.find(c => c.menuItem === id);
+      if (existing) return prev.map(c => c.menuItem === id ? { ...c, qty: c.qty + 1 } : c);
+      return [...prev, { menuItem: id, name: item.name, emoji: item.emoji, price: item.price, qty: 1 }];
+    });
+    toast.success(`${item.emoji} Added`, { duration: 1200, position: 'bottom-right' });
+  }, []);
 
   const changeQty = (itemId, delta) => {
     setCart(prev => prev.map(c => c.menuItem === itemId ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0));
   };
 
+  // No tax, no service charge — total is simply subtotal minus discount
   const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const discountAmt = parseInt(discount) || 0;
-  const taxableAmount = Math.max(0, subtotal - discountAmt);
-  const tax = Math.round(taxableAmount * 0.13);
-  const grand = taxableAmount + tax;
+  const grand = Math.max(0, subtotal - discountAmt);
 
   const placeOrder = async () => {
     if (cart.length === 0) { toast.error('Please add items first'); return; }
@@ -77,11 +77,15 @@ const POSPage = () => {
         discount: discountAmt,
         discountType: 'fixed',
         note,
+        customerName,
+        customerPhone,
       });
       toast.success(`✅ ${data.order.orderId} placed!`, { duration: 3000 });
       setCart([]);
       setDiscount('');
       setNote('');
+      setCustomerName('');
+      setCustomerPhone('');
       setSelectedTable('');
       fetchTables();
     } catch (err) {
@@ -101,6 +105,22 @@ const POSPage = () => {
           <option value="takeaway">🥡 Takeaway</option>
           <option value="delivery">🚀 Delivery</option>
         </select>
+        <input
+          type="text"
+          className="form-control"
+          placeholder="👤 Customer name (optional)"
+          value={customerName}
+          onChange={e => setCustomerName(e.target.value)}
+          style={{ maxWidth: 200 }}
+        />
+        <input
+          type="text"
+          className="form-control"
+          placeholder="📞 Phone (optional)"
+          value={customerPhone}
+          onChange={e => setCustomerPhone(e.target.value)}
+          style={{ maxWidth: 160 }}
+        />
         <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>
           💳 Payment collected at bill time
         </div>
@@ -148,6 +168,11 @@ const POSPage = () => {
                 Table {tables.find(t => t._id === selectedTable)?.number}
               </span>}
             </div>
+            {customerName && (
+              <div style={{ fontSize: 12, color: 'var(--amber)', marginTop: 2, fontWeight: 600 }}>
+                👤 {customerName}{customerPhone ? ` · ${customerPhone}` : ''}
+              </div>
+            )}
             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
               {cart.reduce((s, c) => s + c.qty, 0)} items · {new Date().toLocaleTimeString()}
             </div>
@@ -177,7 +202,6 @@ const POSPage = () => {
           <div className="order-footer-section">
             <div className="totals-block">
               <div className="total-row-sm"><span>Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
-              <div className="total-row-sm"><span>Tax (13% VAT)</span><span>Rs. {tax.toLocaleString()}</span></div>
               {discountAmt > 0 && <div className="total-row-sm" style={{ color: 'var(--red)' }}><span>Discount</span><span>−Rs. {discountAmt}</span></div>}
               <div className="total-row-grand"><span>Total</span><span>Rs. {grand.toLocaleString()}</span></div>
             </div>
@@ -187,10 +211,9 @@ const POSPage = () => {
               <input type="text" className="form-control" placeholder="Note..." value={note} onChange={e => setNote(e.target.value)} />
             </div>
 
-            {/* Payment reminder */}
             <div style={{ background: 'var(--amber-dim)', border: '1px solid var(--amber-glow)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>💳</span>
-              <span>Payment method selected when collecting bill</span>
+              <span>Menu price is final — no added taxes or charges</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>

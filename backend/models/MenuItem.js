@@ -10,7 +10,11 @@ const menuItemSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    enum: ['Tea', 'Coffee', 'Snacks', 'Drinks', 'Food', 'Desserts', 'Other'],
+   enum: [
+  'Tea', 'Coffee', 'Tea Alternatives', 'Lassi', 'Hookah',
+  'Veg Snacks', 'Non-Veg Snacks', 'Breakfast', 'Sandwich',
+  'Burger', 'Fried Rice', 'Chowmein', 'Momo', 'Other',
+],
   },
   price: {
     type: Number,

@@ -85,7 +85,7 @@ exports.getSettings = async (req, res, next) => {
 
 exports.updateSettings = async (req, res, next) => {
   try {
-    const allowed = ['cafeName', 'address', 'phone', 'email', 'vatNumber', 'vatRate', 'serviceChargeRate',
+    const allowed = ['cafeName', 'address', 'phone', 'email', 'vatNumber',  'serviceChargeRate',
       'currency', 'currencySymbol', 'openingTime', 'closingTime', 'receiptFooter', 'enableServiceCharge',
       'enableVAT', 'allowReservations', 'printReceipt', 'isOpen'];
     const updates = {};
