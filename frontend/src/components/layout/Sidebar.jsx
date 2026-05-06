@@ -1,24 +1,42 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const NAV = [
-  { group: 'Operations', items: [
-    { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-    { path: '/pos', icon: '🛒', label: 'New Order' },
-    { path: '/tables', icon: '🪑', label: 'Tables' },
-    { path: '/orders', icon: '📋', label: 'All Orders' },
-    { path: '/kitchen', icon: '👨‍🍳', label: 'Kitchen & QR Orders' },
-  ]},
-  { group: 'Management', items: [
-    { path: '/menu', icon: '🍽️', label: 'Menu Items', roles: ['admin', 'manager'] },
-    { path: '/inventory', icon: '📦', label: 'Inventory' },
-    { path: '/reports', icon: '📈', label: 'Reports', roles: ['admin', 'manager'] },
-    { path: '/transactions', icon: '💰', label: 'Transactions' },
-  ]},
-  { group: 'Admin', items: [
-    { path: '/admin', icon: '⚙️', label: 'Admin Panel', roles: ['admin'] },
-  ]},
+  {
+    group: "Operations",
+    items: [
+      { path: "/dashboard", icon: "📊", label: "Dashboard" },
+      { path: "/pos", icon: "🛒", label: "New Order" },
+      { path: "/tables", icon: "🪑", label: "Tables" },
+      { path: "/orders", icon: "📋", label: "All Orders" },
+      // { path: '/kitchen', icon: '👨‍🍳', label: 'Kitchen & QR Orders' },
+    ],
+  },
+  {
+    group: "Management",
+    items: [
+      {
+        path: "/menu",
+        icon: "🍽️",
+        label: "Menu Items",
+        roles: ["admin", "manager"],
+      },
+      { path: "/inventory", icon: "📦", label: "Inventory" },
+      {
+        path: "/reports",
+        icon: "📈",
+        label: "Reports",
+        roles: ["admin", "manager"],
+      },
+      { path: "/transactions", icon: "💰", label: "Transactions" },
+    ],
+  },
+  {
+    group: "Admin",
+    items: [
+      { path: "/admin", icon: "⚙️", label: "Admin Panel", roles: ["admin"] },
+    ],
+  },
 ];
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -28,7 +46,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const canAccess = (item) => {
@@ -39,7 +57,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   return (
     <>
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
-      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${isOpen ? "open" : ""}`}>
         <div className="sidebar-logo">
           <div className="logo-mark">
             <div className="logo-icon">☕</div>
@@ -51,14 +69,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.map(section => (
+          {NAV.map((section) => (
             <div key={section.group} className="nav-section">
               <div className="nav-label">{section.group}</div>
-              {section.items.filter(canAccess).map(item => (
+              {section.items.filter(canAccess).map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`nav-item ${pathname === item.path || pathname.startsWith(item.path + '/') ? 'active' : ''}`}
+                  className={`nav-item ${pathname === item.path || pathname.startsWith(item.path + "/") ? "active" : ""}`}
                   onClick={onClose}
                 >
                   <span className="nav-icon">{item.icon}</span>
@@ -77,7 +95,11 @@ const Sidebar = ({ isOpen, onClose }) => {
               <div className="user-role">{user?.role}</div>
             </div>
           </div>
-          <button className="btn btn-secondary btn-full btn-sm" onClick={handleLogout} style={{ marginTop: 8 }}>
+          <button
+            className="btn btn-secondary btn-full btn-sm"
+            onClick={handleLogout}
+            style={{ marginTop: 8 }}
+          >
             🚪 Sign Out
           </button>
         </div>

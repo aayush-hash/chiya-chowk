@@ -52,7 +52,6 @@ exports.createOrder = async (req, res, next) => {
       await MenuItem.findByIdAndUpdate(menuItem._id, { $inc: { soldCount: item.qty } });
     }
 
-    // Discount calculation — no tax, no service charge
     const discountAmount = discountType === 'percentage'
       ? Math.round(subtotal * (discount || 0) / 100)
       : (discount || 0);
@@ -147,7 +146,6 @@ exports.getOrders = async (req, res, next) => {
       }
     }
 
-    // General search across orderId, customerName, cashierName, customerPhone
     if (search) {
       filter.$or = [
         { orderId: { $regex: search, $options: 'i' } },
@@ -157,7 +155,6 @@ exports.getOrders = async (req, res, next) => {
       ];
     }
 
-    // Dedicated customer filters
     if (customerName) filter.customerName = { $regex: customerName, $options: 'i' };
     if (customerPhone) filter.customerPhone = { $regex: customerPhone, $options: 'i' };
 
@@ -437,7 +434,6 @@ exports.addItemsToOrder = async (req, res, next) => {
       await MenuItem.findByIdAndUpdate(menuItem._id, { $inc: { soldCount: item.qty } });
     }
 
-    // Recalculate — no tax, no service charge
     order.subtotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
     order.taxAmount = 0;
     order.taxRate = 0;
@@ -529,6 +525,96 @@ exports.getSalesReport = async (req, res, next) => {
         categoryStats,
         period: { start, end, groupBy },
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────
+// @desc    Update customer details on an order
+// @route   PUT /api/orders/:id/customer
+// @access  Private
+// ─────────────────────────────────────────────
+exports.updateCustomer = async (req, res, next) => {
+  try {
+    const { customerName, customerPhone, note } = req.body;
+
+    const order = await Order.findById(req.params.id);
+    if (!order) return next(new AppError('Order not found', 404));
+
+    if (customerName !== undefined) order.customerName = customerName;
+    if (customerPhone !== undefined) order.customerPhone = customerPhone;
+    if (note !== undefined) order.note = note;
+
+    await order.save();
+
+    logger.info(`Order customer updated: ${order.orderId} by ${req.user.username}`);
+    res.json({ success: true, message: 'Customer details updated', order });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────
+// @desc    Record a partial payment on an order
+// @route   POST /api/orders/:id/partial-pay
+// @access  Private
+// ─────────────────────────────────────────────
+exports.partialPay = async (req, res, next) => {
+  try {
+    const { amountPaid, paymentMethod } = req.body;
+
+    if (!amountPaid || amountPaid <= 0) {
+      return next(new AppError('Invalid payment amount', 400));
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) return next(new AppError('Order not found', 404));
+
+    if (order.paymentStatus === 'paid') {
+      return next(new AppError('Order is already fully paid', 400));
+    }
+
+    const currentRemaining = (order.total || 0) - (order.amountReceived || 0);
+
+    if (amountPaid > currentRemaining) {
+      return next(new AppError(`Amount exceeds remaining balance of Rs. ${currentRemaining}`, 400));
+    }
+
+    const newAmountReceived = (order.amountReceived || 0) + amountPaid;
+    const newRemaining = Math.max(0, (order.total || 0) - newAmountReceived);
+
+    order.amountReceived = newAmountReceived;
+    order.paymentMethod = paymentMethod || order.paymentMethod || 'cash';
+
+    if (newRemaining === 0) {
+      order.paymentStatus = 'paid';
+      order.orderStatus = 'completed';
+      order.paidAt = new Date();
+      order.changeGiven = 0;
+
+      if (order.table) {
+        await Table.findByIdAndUpdate(order.table, { status: 'dirty', currentOrder: null });
+      }
+
+      await order.save();
+      logger.info(`Order fully paid via partial: ${order.orderId} by ${req.user.username}`);
+      return res.json({
+        success: true,
+        message: `✅ Rs. ${amountPaid.toLocaleString()} collected — order fully paid!`,
+        order,
+      });
+    }
+
+    order.paymentStatus = 'partial';
+    await order.save();
+
+    logger.info(`Partial payment Rs.${amountPaid} on order ${order.orderId} by ${req.user.username}`);
+    return res.json({
+      success: true,
+      message: `💳 Rs. ${amountPaid.toLocaleString()} collected. Remaining: Rs. ${newRemaining.toLocaleString()}`,
+      order,
     });
   } catch (error) {
     next(error);

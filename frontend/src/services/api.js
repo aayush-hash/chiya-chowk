@@ -72,11 +72,15 @@ export const menuAPI = {
 export const orderAPI = {
   getAll: (params) => api.get('/orders', { params }),
   getById: (id) => api.get(`/orders/${id}`),
-  addItems: (id, data) => api.post(`/orders/${id}/add-items`, data),
   create: (data) => api.post('/orders', data),
+  addItems: (id, data) => api.post(`/orders/${id}/add-items`, data),
   markPaid: (id, data) => api.put(`/orders/${id}/pay`, data),
   cancel: (id, data) => api.put(`/orders/${id}/cancel`, data),
   updateStatus: (id, data) => api.put(`/orders/${id}/status`, data),
+  // ── NEW ──
+  updateCustomer: (id, data) => api.put(`/orders/${id}/customer`, data),
+  partialPay: (id, data) => api.post(`/orders/${id}/partial-pay`, data),
+  // ─────────
   getDashboard: () => api.get('/orders/stats/dashboard'),
   getReport: (params) => api.get('/orders/stats/report', { params }),
 };
