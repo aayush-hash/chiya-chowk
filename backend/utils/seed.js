@@ -165,62 +165,62 @@ const seed = async () => {
     console.log('⚙️  Settings created');
 
     // Seed some sample orders (last 7 days)
-    const tables = await Table.find();
-    const now = new Date();
-    const sampleOrders = [];
+    // const tables = await Table.find();
+    // const now = new Date();
+    // const sampleOrders = [];
 
-    for (let i = 0; i < 30; i++) {
-      const orderTime = new Date(now - Math.random() * 7 * 86400000);
-      const orderItems = [];
-      const count = Math.floor(Math.random() * 4) + 1;
-      let subtotal = 0;
+    // for (let i = 0; i < 30; i++) {
+    //   const orderTime = new Date(now - Math.random() * 7 * 86400000);
+    //   const orderItems = [];
+    //   const count = Math.floor(Math.random() * 4) + 1;
+    //   let subtotal = 0;
 
-      for (let j = 0; j < count; j++) {
-        const mi = menuItems[Math.floor(Math.random() * menuItems.length)];
-        const qty = Math.floor(Math.random() * 3) + 1;
-        const itemSub = mi.price * qty;
-        subtotal += itemSub;
-        orderItems.push({
-          menuItem: mi._id,
-          name: mi.name,
-          emoji: mi.emoji,
-          category: mi.category,
-          price: mi.price,
-          qty,
-          subtotal: itemSub,
-        });
-      }
+    //   for (let j = 0; j < count; j++) {
+    //     const mi = menuItems[Math.floor(Math.random() * menuItems.length)];
+    //     const qty = Math.floor(Math.random() * 3) + 1;
+    //     const itemSub = mi.price * qty;
+    //     subtotal += itemSub;
+    //     orderItems.push({
+    //       menuItem: mi._id,
+    //       name: mi.name,
+    //       emoji: mi.emoji,
+    //       category: mi.category,
+    //       price: mi.price,
+    //       qty,
+    //       subtotal: itemSub,
+    //     });
+    //   }
 
-      const taxAmount = Math.round(subtotal * 0.13);
-      const total = subtotal + taxAmount;
-      const isPaid = Math.random() > 0.2;
-      const method = Math.random() > 0.4 ? 'cash' : 'qr';
+    //   const taxAmount = Math.round(subtotal * 0.13);
+    //   const total = subtotal + taxAmount;
+    //   const isPaid = Math.random() > 0.2;
+    //   const method = Math.random() > 0.4 ? 'cash' : 'qr';
 
-      sampleOrders.push({
-        orderId: `ORD-${String(i + 1001).padStart(4, '0')}`,
-        table: tables[Math.floor(Math.random() * tables.length)]._id,
-        tableNumber: Math.floor(Math.random() * 12) + 1,
-        orderType: 'dine-in',
-        items: orderItems,
-        subtotal,
-        discount: 0,
-        taxRate: 13,
-        taxAmount,
-        serviceCharge: 0,
-        total,
-        paymentMethod: isPaid ? method : 'pending',
-        paymentStatus: isPaid ? 'paid' : 'unpaid',
-        orderStatus: isPaid ? 'completed' : 'pending',
-        cashier: adminUser._id,
-        cashierName: adminUser.name,
-        paidAt: isPaid ? orderTime : null,
-        createdAt: orderTime,
-        updatedAt: orderTime,
-      });
-    }
+    //   sampleOrders.push({
+    //     orderId: `ORD-${String(i + 1001).padStart(4, '0')}`,
+    //     table: tables[Math.floor(Math.random() * tables.length)]._id,
+    //     tableNumber: Math.floor(Math.random() * 12) + 1,
+    //     orderType: 'dine-in',
+    //     items: orderItems,
+    //     subtotal,
+    //     discount: 0,
+    //     taxRate: 13,
+    //     taxAmount,
+    //     serviceCharge: 0,
+    //     total,
+    //     paymentMethod: isPaid ? method : 'pending',
+    //     paymentStatus: isPaid ? 'paid' : 'unpaid',
+    //     orderStatus: isPaid ? 'completed' : 'pending',
+    //     cashier: adminUser._id,
+    //     cashierName: adminUser.name,
+    //     paidAt: isPaid ? orderTime : null,
+    //     createdAt: orderTime,
+    //     updatedAt: orderTime,
+    //   });
+    // }
 
-    await Order.insertMany(sampleOrders, { timestamps: false });
-    console.log('📋 30 Sample orders seeded');
+    // await Order.insertMany(sampleOrders, { timestamps: false });
+    // console.log('📋 30 Sample orders seeded');
 
     console.log('\n✅ Database seeded successfully!');
     console.log('\n🔐 Login credentials:');
