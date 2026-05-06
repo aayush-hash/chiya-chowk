@@ -400,3 +400,6 @@
 {"level":"error","message":"404 - Invalid QR code. Please ask staff for help. - /api/qr/scan/3c1a8f5725d0a281f40423753d5b9106697d608d - GET - ::1","service":"chiya-chowk-api","timestamp":"2026-05-05 01:01:45"}
 {"level":"error","message":"404 - Invalid QR code. Please ask staff for help. - /api/qr/scan/ed8cadbd6a93ce0c22ff938948a5fa0ccf6be22b - GET - ::1","service":"chiya-chowk-api","timestamp":"2026-05-05 01:01:45"}
 {"level":"error","message":"404 - Invalid QR code. Please ask staff for help. - /api/qr/scan/ed8cadbd6a93ce0c22ff938948a5fa0ccf6be22b - GET - ::1","service":"chiya-chowk-api","timestamp":"2026-05-05 01:01:45"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-06 17:52:53"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-06 17:52:53"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-06 17:58:11"}
