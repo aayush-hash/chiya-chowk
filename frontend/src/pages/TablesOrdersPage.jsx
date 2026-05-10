@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { orderAPI } from '../services/api';
+import PayBillModal from "../components/layout/PayBillModal";
 import toast from 'react-hot-toast';
 
 // ─── Bill print utility ───────────────────────────────────────────────────────
@@ -66,8 +67,8 @@ const printBill = (order) => {
   win.document.close();
 };
 
-// ─── Edit Order Modal (customer details + partial pay + clear) ────────────────
-const EditOrderModal = ({ order, onClose, onSuccess }) => {
+// ─── Edit Order Modal (customer details + payment tab) ────────────────────────
+const EditOrderModal = ({ order, onClose, onSuccess, initialTab = 'details' }) => {
   const [customerName, setCustomerName] = useState(order.customerName || '');
   const [customerPhone, setCustomerPhone] = useState(order.customerPhone || '');
   const [note, setNote] = useState(order.note || '');
@@ -76,7 +77,7 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
   const [saving, setSaving] = useState(false);
   const [paying, setPaying] = useState(false);
   const [clearing, setClearing] = useState(false);
-  const [activeTab, setActiveTab] = useState('details'); // 'details' | 'payment'
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const remaining = order.remainingAmount ?? order.total;
   const newRemaining = amountPaid ? Math.max(0, remaining - parseFloat(amountPaid)) : remaining;
@@ -94,31 +95,14 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
   };
 
   const handlePartialPay = async () => {
-    if (!amountPaid || parseFloat(amountPaid) <= 0) {
-      toast.error('Enter a valid amount');
-      return;
-    }
+    if (!amountPaid || parseFloat(amountPaid) <= 0) { toast.error('Enter a valid amount'); return; }
     setPaying(true);
     try {
       const { data } = await orderAPI.partialPay(order._id, {
-        amountPaid: parseFloat(amountPaid),
+        amountReceived: parseFloat(amountPaid),
         paymentMethod,
       });
       toast.success(data.message);
-      onSuccess(data.order);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Payment failed');
-    } finally { setPaying(false); }
-  };
-
-  const handleFullPay = async () => {
-    setPaying(true);
-    try {
-      const { data } = await orderAPI.markPaid(order._id, {
-        paymentMethod,
-        amountReceived: order.total,
-      });
-      toast.success('✅ Order fully paid!');
       onSuccess(data.order);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Payment failed');
@@ -152,55 +136,35 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
           <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
         </div>
 
-        {/* Tab nav */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 20px' }}>
-          {[
-            { key: 'details', label: '👤 Customer' },
-            { key: 'payment', label: '💳 Payment' },
-          ].map(tab => (
+          {[{ key: 'details', label: '👤 Customer' }, { key: 'payment', label: '💳 Payment' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-              padding: '10px 16px', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? 'var(--amber)' : 'transparent'}`,
-              color: activeTab === tab.key ? 'var(--amber)' : 'var(--text3)', fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1,
-            }}>
-              {tab.label}
-            </button>
+              padding: '10px 16px', background: 'none', border: 'none',
+              borderBottom: `2px solid ${activeTab === tab.key ? 'var(--amber)' : 'transparent'}`,
+              color: activeTab === tab.key ? 'var(--amber)' : 'var(--text3)',
+              fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1,
+            }}>{tab.label}</button>
           ))}
         </div>
 
         <div className="modal-body">
-          {/* ── CUSTOMER TAB ── */}
           {activeTab === 'details' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6 }}>Customer Name</label>
-                <input
-                  className="form-control"
-                  placeholder="Enter customer name..."
-                  value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  autoFocus
-                />
+                <input className="form-control" placeholder="Enter customer name..." value={customerName}
+                  onChange={e => setCustomerName(e.target.value)} autoFocus />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6 }}>Phone Number</label>
-                <input
-                  className="form-control"
-                  placeholder="98XXXXXXXX"
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value)}
-                />
+                <input className="form-control" placeholder="98XXXXXXXX" value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value)} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6 }}>Order Note</label>
-                <input
-                  className="form-control"
-                  placeholder="Special instructions..."
-                  value={note}
-                  onChange={e => setNote(e.target.value)}
-                />
+                <input className="form-control" placeholder="Special instructions..." value={note}
+                  onChange={e => setNote(e.target.value)} />
               </div>
-
-              {/* Current status summary */}
               <div style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>
                   <span>Total Bill</span>
@@ -222,7 +186,6 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
                   <div style={{ fontSize: 13, color: 'var(--green)', fontWeight: 700, textAlign: 'center', padding: '4px 0' }}>✅ Fully Paid</div>
                 )}
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
                 <button className="btn btn-primary" onClick={handleSaveDetails} disabled={saving}>
@@ -232,10 +195,8 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* ── PAYMENT TAB ── */}
           {activeTab === 'payment' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Balance summary */}
               <div style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text3)', marginBottom: 5 }}>
                   <span>Order Total</span>
@@ -248,24 +209,19 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
-                  <span style={{ color: remaining > 0 ? 'var(--red)' : 'var(--green)' }}>
-                    {remaining > 0 ? 'Due' : 'Settled'}
-                  </span>
-                  <span style={{ fontFamily: 'DM Mono', color: remaining > 0 ? 'var(--red)' : 'var(--green)' }}>
-                    Rs. {remaining?.toLocaleString()}
-                  </span>
+                  <span style={{ color: remaining > 0 ? 'var(--red)' : 'var(--green)' }}>{remaining > 0 ? 'Due' : 'Settled'}</span>
+                  <span style={{ fontFamily: 'DM Mono', color: remaining > 0 ? 'var(--red)' : 'var(--green)' }}>Rs. {remaining?.toLocaleString()}</span>
                 </div>
               </div>
 
               {remaining > 0 && order.paymentStatus !== 'paid' ? (
                 <>
-                  {/* Payment method */}
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Payment Method</label>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       {[{ key: 'cash', icon: '💵', label: 'Cash' }, { key: 'qr', icon: '📱', label: 'QR / eSewa' }].map(m => (
                         <div key={m.key} onClick={() => setPaymentMethod(m.key)} style={{
-                          padding: '12px 10px', borderRadius: 10, textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s',
+                          padding: '12px 10px', borderRadius: 10, textAlign: 'center', cursor: 'pointer',
                           border: `2px solid ${paymentMethod === m.key ? 'var(--amber)' : 'var(--border2)'}`,
                           background: paymentMethod === m.key ? 'var(--amber-dim)' : 'var(--card)',
                         }}>
@@ -275,23 +231,14 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
                       ))}
                     </div>
                   </div>
-
-                  {/* Partial amount entry */}
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
                       Amount to Collect <span style={{ fontWeight: 400 }}>(can be partial)</span>
                     </label>
-                    <input
-                      type="number"
-                      className="form-control"
+                    <input type="number" className="form-control"
                       placeholder={`Max Rs. ${remaining?.toLocaleString()}`}
-                      value={amountPaid}
-                      onChange={e => setAmountPaid(e.target.value)}
-                      min={1}
-                      max={remaining}
-                      autoFocus={activeTab === 'payment'}
-                    />
-                    {/* Live feedback */}
+                      value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
+                      min={1} max={remaining} autoFocus={activeTab === 'payment'} />
                     {amountPaid && !isOverpay && parseFloat(amountPaid) > 0 && (
                       <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card2)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
@@ -312,25 +259,16 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
                       </div>
                     )}
                   </div>
-
-                  {/* Action buttons */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <button
-                      className="btn btn-success"
+                    <button className="btn btn-success"
                       onClick={handlePartialPay}
                       disabled={paying || !amountPaid || parseFloat(amountPaid) <= 0 || isOverpay}
-                      style={{ opacity: (!amountPaid || parseFloat(amountPaid) <= 0 || isOverpay) ? 0.5 : 1 }}
-                    >
+                      style={{ opacity: (!amountPaid || parseFloat(amountPaid) <= 0 || isOverpay) ? 0.5 : 1 }}>
                       {paying ? 'Processing...' : newRemaining > 0
                         ? `💳 Collect Rs. ${amountPaid ? parseFloat(amountPaid).toLocaleString() : '—'} (Partial)`
-                        : '✅ Collect & Mark Fully Paid'
-                      }
+                        : '✅ Collect & Mark Fully Paid'}
                     </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={handleClearRemaining}
-                      disabled={clearing || paying}
-                    >
+                    <button className="btn btn-secondary" onClick={handleClearRemaining} disabled={clearing || paying}>
                       {clearing ? 'Clearing...' : `🧹 Clear Remaining — Mark Rs. ${remaining?.toLocaleString()} as Paid`}
                     </button>
                   </div>
@@ -339,156 +277,12 @@ const EditOrderModal = ({ order, onClose, onSuccess }) => {
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
                   <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>Order Fully Paid</div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                    via {order.paymentMethod?.toUpperCase()} · Rs. {order.total?.toLocaleString()}
-                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>via {order.paymentMethod?.toUpperCase()} · Rs. {order.total?.toLocaleString()}</div>
                 </div>
               )}
-
               <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 4 }}>Close</button>
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Quick Pay Modal (full payment) ──────────────────────────────────────────
-const QuickPayModal = ({ order, onClose, onSuccess }) => {
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [amountReceived, setAmountReceived] = useState('');
-  const [paying, setPaying] = useState(false);
-
-  const remaining = order.remainingAmount ?? order.total;
-  const change = amountReceived ? Math.max(0, parseFloat(amountReceived) - remaining) : 0;
-  const isExact = !amountReceived || parseFloat(amountReceived) >= remaining;
-
-  const handlePay = async () => {
-    if (amountReceived && parseFloat(amountReceived) < remaining) {
-      toast.error('Amount received is less than remaining balance');
-      return;
-    }
-    setPaying(true);
-    try {
-      const { data } = await orderAPI.markPaid(order._id, {
-        paymentMethod,
-        amountReceived: parseFloat(amountReceived) || remaining,
-      });
-      toast.success(`✅ Rs. ${remaining.toLocaleString()} collected`);
-      onSuccess(data.order || order);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Payment failed');
-    } finally { setPaying(false); }
-  };
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-        <div className="modal-header">
-          <div>
-            <h3 className="modal-title">💳 Collect Payment</h3>
-            {order.customerName && (
-              <div style={{ fontSize: 12, color: 'var(--amber)', marginTop: 2 }}>
-                👤 {order.customerName}{order.customerPhone ? ` · ${order.customerPhone}` : ''}
-              </div>
-            )}
-          </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body">
-          <div style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 12, color: 'var(--text3)' }}>Order</span>
-              <span style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--amber)' }}>{order.orderId}</span>
-            </div>
-            {order.tableNumber && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Table</span>
-                <span style={{ fontSize: 12 }}>Table {order.tableNumber}</span>
-              </div>
-            )}
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 6 }}>
-              {order.items?.map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 12, borderBottom: '1px solid var(--border)' }}>
-                  <span>{item.emoji} {item.name} × {item.qty}</span>
-                  <span style={{ fontFamily: 'DM Mono', color: 'var(--text2)' }}>Rs. {(item.subtotal || item.price * item.qty).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text3)', marginBottom: 3 }}>
-                <span>Order Total</span><span>Rs. {order.total?.toLocaleString()}</span>
-              </div>
-              {order.amountReceived > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--green)', marginBottom: 3 }}>
-                  <span>Already Paid</span><span>Rs. {order.amountReceived?.toLocaleString()}</span>
-                </div>
-              )}
-              {order.discount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--red)', marginBottom: 3 }}>
-                  <span>Discount</span><span>- Rs. {order.discount}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 700, color: 'var(--red)', marginTop: 6 }}>
-                <span>REMAINING DUE</span>
-                <span style={{ fontFamily: 'DM Mono' }}>Rs. {remaining?.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Payment Method</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {[{ key: 'cash', icon: '💵', label: 'Cash' }, { key: 'qr', icon: '📱', label: 'QR / eSewa' }].map(m => (
-                <div key={m.key} onClick={() => setPaymentMethod(m.key)} style={{
-                  padding: '14px 10px', borderRadius: 10, textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s',
-                  border: `2px solid ${paymentMethod === m.key ? 'var(--amber)' : 'var(--border2)'}`,
-                  background: paymentMethod === m.key ? 'var(--amber-dim)' : 'var(--card)',
-                }}>
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>{m.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: paymentMethod === m.key ? 'var(--amber)' : 'var(--text3)' }}>{m.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {paymentMethod === 'cash' && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                Amount Received <span style={{ fontWeight: 400 }}>(leave blank if exact)</span>
-              </label>
-              <input type="number" className="form-control" placeholder={`Rs. ${remaining?.toLocaleString()}`}
-                value={amountReceived} onChange={e => setAmountReceived(e.target.value)} min={remaining} autoFocus />
-              {amountReceived && parseFloat(amountReceived) >= remaining && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(76,175,136,0.1)', border: '1px solid rgba(76,175,136,0.3)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text3)' }}>Change to return</span>
-                  <span style={{ fontFamily: 'DM Mono', fontWeight: 700, color: 'var(--green)' }}>Rs. {change.toLocaleString()}</span>
-                </div>
-              )}
-              {amountReceived && parseFloat(amountReceived) < remaining && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(224,92,92,0.1)', border: '1px solid rgba(224,92,92,0.3)', borderRadius: 8, fontSize: 12, color: 'var(--red)' }}>
-                  ⚠️ Rs. {(remaining - parseFloat(amountReceived)).toLocaleString()} short
-                </div>
-              )}
-            </div>
-          )}
-
-          {paymentMethod === 'qr' && (
-            <div style={{ marginBottom: 16, padding: '12px 14px', background: 'rgba(91,155,213,0.08)', border: '1px solid rgba(91,155,213,0.25)', borderRadius: 10, textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 6 }}>📱</div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>Scan QR / Pay via eSewa</div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Amount: <b style={{ color: 'var(--amber)', fontFamily: 'DM Mono' }}>Rs. {remaining?.toLocaleString()}</b></div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>Confirm payment before clicking below</div>
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={onClose} disabled={paying}>Cancel</button>
-            <button className="btn btn-success" onClick={handlePay} disabled={paying || !isExact} style={{ opacity: !isExact ? 0.5 : 1 }}>
-              {paying ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Processing...</> : '✅ Confirm Payment'}
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -503,9 +297,7 @@ const PaidConfirmModal = ({ order, onClose }) => (
         <div style={{ fontSize: 56, marginBottom: 12 }}>✅</div>
         <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Payment Received!</h3>
         {order.customerName && (
-          <p style={{ color: 'var(--amber)', fontSize: 14, marginBottom: 4 }}>
-            👤 {order.customerName}
-          </p>
+          <p style={{ color: 'var(--amber)', fontSize: 14, marginBottom: 4 }}>👤 {order.customerName}</p>
         )}
         <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 6 }}>
           {order.orderId} · Rs. {order.total?.toLocaleString()}
@@ -523,19 +315,16 @@ const PaidConfirmModal = ({ order, onClose }) => (
   </div>
 );
 
-// ─── Payment status badge helper ──────────────────────────────────────────────
+// ─── Payment status badge ─────────────────────────────────────────────────────
 const PayBadge = ({ status }) => {
   const cfg = {
-    paid: { bg: 'rgba(76,175,136,0.15)', color: 'var(--green)', label: '✅ PAID' },
-    partial: { bg: 'rgba(255,165,0,0.15)', color: '#f5a623', label: '⏳ PARTIAL' },
-    unpaid: { bg: 'rgba(224,92,92,0.15)', color: 'var(--red)', label: '❌ UNPAID' },
+    paid:    { bg: 'rgba(76,175,136,0.15)',  color: 'var(--green)', label: '✅ PAID' },
+    partial: { bg: 'rgba(255,165,0,0.15)',   color: '#f5a623',      label: '⏳ PARTIAL' },
+    unpaid:  { bg: 'rgba(224,92,92,0.15)',   color: 'var(--red)',   label: '❌ UNPAID' },
   };
   const c = cfg[status] || cfg.unpaid;
   return (
-    <span style={{
-      padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-      background: c.bg, color: c.color, letterSpacing: 0.5,
-    }}>
+    <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: c.bg, color: c.color, letterSpacing: 0.5 }}>
       {c.label}
     </span>
   );
@@ -549,8 +338,7 @@ export const OrdersPage = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [payingOrder, setPayingOrder] = useState(null);
+  const [payingOrder, setPayingOrder] = useState(null);   // drives PayBillModal
   const [paidOrder, setPaidOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
   const [expandedOrder, setExpandedOrder] = useState(null);
@@ -569,9 +357,7 @@ export const OrdersPage = () => {
       setOrders(data.orders);
     } catch (err) {
       toast.error('Failed to load orders');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [filter, dateFilter, search]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
@@ -582,7 +368,6 @@ export const OrdersPage = () => {
   }, [searchInput]);
 
   const handlePaySuccess = (completedOrder) => {
-    setShowPayModal(false);
     setPayingOrder(null);
     if (completedOrder?.paymentStatus === 'paid') setPaidOrder(completedOrder);
     fetchOrders();
@@ -595,40 +380,34 @@ export const OrdersPage = () => {
   };
 
   const filters = [
-    { key: 'all', label: 'All' },
-    { key: 'unpaid', label: '❌ Unpaid' },
+    { key: 'all',     label: 'All' },
+    { key: 'unpaid',  label: '❌ Unpaid' },
     { key: 'partial', label: '⏳ Partial' },
-    { key: 'paid', label: '✅ Paid' },
-    { key: 'cash', label: '💵 Cash' },
-    { key: 'qr', label: '📱 QR' },
+    { key: 'paid',    label: '✅ Paid' },
+    { key: 'cash',    label: '💵 Cash' },
+    { key: 'qr',      label: '📱 QR' },
   ];
 
-  const paid = orders.filter(o => o.paymentStatus === 'paid');
+  const paid         = orders.filter(o => o.paymentStatus === 'paid');
   const unpaidOrders = orders.filter(o => o.paymentStatus === 'unpaid');
-  const partialOrders = orders.filter(o => o.paymentStatus === 'partial');
-  const totalRev = paid.reduce((s, o) => s + o.total, 0);
-  const totalUnpaid = unpaidOrders.reduce((s, o) => s + (o.remainingAmount ?? o.total), 0);
+  const partialOrders= orders.filter(o => o.paymentStatus === 'partial');
+  const totalRev     = paid.reduce((s, o) => s + o.total, 0);
+  const totalUnpaid  = unpaidOrders.reduce((s, o) => s + (o.remainingAmount ?? o.total), 0);
   const totalPartial = partialOrders.reduce((s, o) => s + (o.remainingAmount ?? 0), 0);
-  const cashRev = paid.filter(o => o.paymentMethod === 'cash').reduce((s, o) => s + o.total, 0);
-  const qrRev = paid.filter(o => o.paymentMethod === 'qr').reduce((s, o) => s + o.total, 0);
+  const cashRev      = paid.filter(o => o.paymentMethod === 'cash').reduce((s, o) => s + o.total, 0);
+  const qrRev        = paid.filter(o => o.paymentMethod === 'qr').reduce((s, o) => s + o.total, 0);
 
   const exportCSV = () => {
-    const headers = ['Order ID', 'Customer', 'Phone', 'Table', 'Items', 'Subtotal', 'Discount', 'Total', 'Paid', 'Remaining', 'Payment', 'Status', 'Time', 'Cashier'];
+    const headers = ['Order ID','Customer','Phone','Table','Items','Subtotal','Discount','Total','Paid','Remaining','Payment','Status','Time','Cashier'];
     const rows = orders.map(o => [
-      o.orderId,
-      o.customerName || '',
-      o.customerPhone || '',
+      o.orderId, o.customerName || '', o.customerPhone || '',
       o.tableNumber || o.orderType,
       o.items.map(i => `${i.name}x${i.qty}`).join(';'),
-      o.subtotal,
-      o.discount || 0,
-      o.total,
+      o.subtotal, o.discount || 0, o.total,
       o.amountReceived || 0,
       o.remainingAmount ?? (o.paymentStatus === 'unpaid' ? o.total : 0),
-      o.paymentMethod,
-      o.paymentStatus,
-      new Date(o.createdAt).toLocaleString(),
-      o.cashierName,
+      o.paymentMethod, o.paymentStatus,
+      new Date(o.createdAt).toLocaleString(), o.cashierName,
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -640,16 +419,15 @@ export const OrdersPage = () => {
 
   return (
     <div className="animate-fadeIn">
-      {/* ── Header ── */}
       <div className="page-header">
         <h2 className="page-title">📋 All Orders</h2>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input type="date" className="form-control" value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{ width: 'auto' }} />
+          <input type="date" className="form-control" value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)} style={{ width: 'auto' }} />
           <button className="btn btn-secondary btn-sm" onClick={exportCSV}>↓ CSV</button>
         </div>
       </div>
 
-      {/* ── Summary bar ── */}
       <div className="stats-grid mb-16" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
         <div className="stat-card">
           <div className="stat-label">Collected</div>
@@ -673,7 +451,6 @@ export const OrdersPage = () => {
         </div>
       </div>
 
-      {/* ── Filters + Search ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {filters.map(f => (
           <button key={f.key} className={`filter-chip ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
@@ -682,13 +459,9 @@ export const OrdersPage = () => {
         ))}
         <div style={{ marginLeft: 'auto', position: 'relative', minWidth: 260 }}>
           <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text3)', pointerEvents: 'none' }}>🔍</span>
-          <input
-            className="form-control"
-            placeholder="Search name, phone, order ID..."
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            style={{ paddingLeft: 32, fontSize: 13 }}
-          />
+          <input className="form-control" placeholder="Search name, phone, order ID..."
+            value={searchInput} onChange={e => setSearchInput(e.target.value)}
+            style={{ paddingLeft: 32, fontSize: 13 }} />
           {searchInput && (
             <button onClick={() => { setSearchInput(''); setSearch(''); }} style={{
               position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
@@ -698,7 +471,6 @@ export const OrdersPage = () => {
         </div>
       </div>
 
-      {/* ── Table ── */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
         {loading ? (
           <div className="flex-center" style={{ padding: 40 }}><div className="spinner" /></div>
@@ -706,17 +478,9 @@ export const OrdersPage = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Table</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Paid</th>
-                <th>Remaining</th>
-                <th>Payment</th>
-                <th>Status</th>
-                <th>Time</th>
-                <th>Actions</th>
+                <th>Order ID</th><th>Customer</th><th>Table</th><th>Items</th>
+                <th>Total</th><th>Paid</th><th>Remaining</th>
+                <th>Payment</th><th>Status</th><th>Time</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -743,48 +507,30 @@ export const OrdersPage = () => {
                       }}
                       onClick={() => setExpandedOrder(isExpanded ? null : o._id)}
                     >
-                      <td>
-                        <span style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--amber)' }}>{o.orderId}</span>
-                      </td>
+                      <td><span style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--amber)' }}>{o.orderId}</span></td>
                       <td>
                         {o.customerName ? (
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600 }}>{o.customerName}</div>
-                            {o.customerPhone && (
-                              <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'DM Mono' }}>{o.customerPhone}</div>
-                            )}
+                            {o.customerPhone && <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'DM Mono' }}>{o.customerPhone}</div>}
                           </div>
-                        ) : (
-                          <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
-                        )}
+                        ) : <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>}
                       </td>
                       <td>{o.tableNumber ? `T${o.tableNumber}` : o.orderType}</td>
                       <td>
                         <span style={{ fontSize: 14 }}>{o.items.map(i => i.emoji).join('')}</span>
                         <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>{o.items.length} items</span>
                       </td>
+                      <td><span style={{ fontFamily: 'DM Mono', color: 'var(--amber)', fontWeight: 600 }}>Rs. {o.total.toLocaleString()}</span></td>
                       <td>
-                        <span style={{ fontFamily: 'DM Mono', color: 'var(--amber)', fontWeight: 600 }}>
-                          Rs. {o.total.toLocaleString()}
-                        </span>
+                        {paidSoFar > 0
+                          ? <span style={{ fontFamily: 'DM Mono', color: 'var(--green)', fontSize: 12 }}>Rs. {paidSoFar.toLocaleString()}</span>
+                          : <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>}
                       </td>
                       <td>
-                        {paidSoFar > 0 ? (
-                          <span style={{ fontFamily: 'DM Mono', color: 'var(--green)', fontSize: 12 }}>
-                            Rs. {paidSoFar.toLocaleString()}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        {remaining > 0 ? (
-                          <span style={{ fontFamily: 'DM Mono', color: isPartial ? '#f5a623' : 'var(--red)', fontWeight: 700, fontSize: 13 }}>
-                            Rs. {remaining.toLocaleString()}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--green)', fontSize: 12 }}>✓ Cleared</span>
-                        )}
+                        {remaining > 0
+                          ? <span style={{ fontFamily: 'DM Mono', color: isPartial ? '#f5a623' : 'var(--red)', fontWeight: 700, fontSize: 13 }}>Rs. {remaining.toLocaleString()}</span>
+                          : <span style={{ color: 'var(--green)', fontSize: 12 }}>✓ Cleared</span>}
                       </td>
                       <td><span className={`badge badge-${o.paymentMethod}`}>{o.paymentMethod?.toUpperCase()}</span></td>
                       <td><PayBadge status={o.paymentStatus} /></td>
@@ -796,26 +542,18 @@ export const OrdersPage = () => {
                           {(o.paymentStatus === 'unpaid' || o.paymentStatus === 'partial') && (
                             <button
                               className="btn btn-xs btn-success"
-                              onClick={() => { setPayingOrder(o); setShowPayModal(true); }}
+                              onClick={() => setPayingOrder(o)}
                               title="Collect payment"
                             >
                               💳 Pay
                             </button>
                           )}
-                          {/* Edit button — always shown */}
-                          <button
-                            className="btn btn-xs btn-secondary"
-                            onClick={() => setEditingOrder(o)}
-                            title="Edit customer / add payment"
-                          >
-                            ✏️
-                          </button>
+                          <button className="btn btn-xs btn-secondary" onClick={() => setEditingOrder(o)} title="Edit order">✏️</button>
                           <button className="btn btn-xs btn-secondary" onClick={() => printBill(o)} title="Print bill">🖨️</button>
                         </div>
                       </td>
                     </tr>
 
-                    {/* Expanded row */}
                     {isExpanded && (
                       <tr>
                         <td colSpan={11} style={{ background: 'var(--card2)', padding: 0 }}>
@@ -907,10 +645,11 @@ export const OrdersPage = () => {
       </div>
 
       {/* ── Modals ── */}
-      {showPayModal && payingOrder && (
-        <QuickPayModal
+      {payingOrder && (
+        <PayBillModal
           order={payingOrder}
-          onClose={() => { setShowPayModal(false); setPayingOrder(null); }}
+          table={null}
+          onClose={() => setPayingOrder(null)}
           onSuccess={handlePaySuccess}
         />
       )}
