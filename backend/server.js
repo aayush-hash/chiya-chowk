@@ -145,6 +145,46 @@ app.use('/api/users', userRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/qr', qrRoutes);
 
+
+
+// TEMPORARY SEED ROUTE - REMOVE AFTER USE
+app.get('/seed-now', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const MenuItem = require('./models/MenuItem');
+    const Table = require('./models/Table');
+    const Settings = require('./models/Settings');
+    const Order = require('./models/Order');
+
+    await Promise.all([
+      User.deleteMany(),
+      MenuItem.deleteMany(),
+      Table.deleteMany(),
+      Settings.deleteMany(),
+      Order.deleteMany(),
+    ]);
+
+    const adminUser = await User.create({
+      name: 'Admin',
+      username: 'admin',
+      password: 'admin123',
+      role: 'admin',
+      email: 'admin@chiyachowk.com',
+    });
+
+    await User.create({ name: 'Sita Shrestha', username: 'staff', password: 'staff123', role: 'staff' });
+    await User.create({ name: 'Ram Bahadur', username: 'cashier1', password: 'cashier123', role: 'cashier' });
+
+    res.json({ 
+      success: true, 
+      message: '✅ Database seeded!',
+      login: { username: 'admin', password: 'admin123' }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===== 404 HANDLER =====
 app.use((req, res) => {
   res.status(404).json({
