@@ -36,7 +36,7 @@ app.use(cors({
     process.env.FRONTEND_URL,
   ],
   credentials: true,
-})
+}))
 
 // Security headers
 app.use(helmet({
