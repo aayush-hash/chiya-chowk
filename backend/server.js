@@ -30,13 +30,30 @@ app.set('trust proxy', 1);
 
 // CORS
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://chiya-chowk.vercel.app',
-    process.env.FRONTEND_URL,
-  ],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    const allowed = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://chiya-chowk.vercel.app',
+      process.env.FRONTEND_URL,
+    ];
+
+    if (
+      allowed.includes(origin) ||
+      origin.endsWith('.vercel.app')        // ← allows ALL vercel preview URLs
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
   credentials: true,
-}))
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Security headers
 app.use(helmet({
