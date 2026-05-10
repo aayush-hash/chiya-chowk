@@ -29,7 +29,14 @@ connectDB();
 app.set('trust proxy', 1);
 
 // CORS
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://chiya-chowk.vercel.app',
+    process.env.FRONTEND_URL,
+  ],
+  credentials: true,
+})
 
 // Security headers
 app.use(helmet({
