@@ -312,3 +312,77 @@
 {"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-04 20:18:24"}
 {"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-04 20:22:18"}
 {"level":"info","message":"Order created: ORD-1032 by admin","service":"chiya-chowk-api","timestamp":"2026-05-04 20:39:12"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-10 13:43:47"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED 127.0.0.1:27017","service":"chiya-chowk-api","timestamp":"2026-05-10 13:43:52"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-10 13:55:31"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-10 13:55:31"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-10 14:01:27"}
+{"level":"info","message":"Order created: ORD-1031 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:09:12"}
+{"level":"info","message":"Items added to order ORD-1031 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:25:37"}
+{"level":"info","message":"Items added to order ORD-1031 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:25:44"}
+{"level":"info","message":"Order paid: ORD-1031 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:26:03"}
+{"level":"info","message":"Table 1 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:26:50"}
+{"level":"info","message":"Order created: ORD-1032 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:27:14"}
+{"level":"error","message":"400 - Cannot clear table with unpaid order. Mark order as paid first. - /api/tables/6a003d89e32c1dcd5c765f3e/clear - PATCH - ::1","service":"chiya-chowk-api","timestamp":"2026-05-10 14:28:05"}
+{"level":"info","message":"Table 1 status set to dirty by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:28:12"}
+{"level":"info","message":"Table 1 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:28:17"}
+{"level":"info","message":"Table 1 status set to reserved by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:28:21"}
+{"level":"info","message":"Order created: ORD-1033 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:30:09"}
+{"level":"error","message":"400 - Cannot change status of occupied table without clearing order - /api/tables/6a003d89e32c1dcd5c765f42/status - PATCH - ::1","service":"chiya-chowk-api","timestamp":"2026-05-10 14:30:12"}
+{"level":"info","message":"Items added to order ORD-1033 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:30:50"}
+{"level":"info","message":"Table 2 status set to dirty by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:31:38"}
+{"level":"info","message":"Table 2 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:31:41"}
+{"level":"info","message":"Table 13 created by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:32:27"}
+{"level":"info","message":"Order created: ORD-1034 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:32:36"}
+{"level":"info","message":"Order paid: ORD-1034 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:32:59"}
+{"level":"info","message":"Order paid: ORD-1004 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:34:01"}
+{"level":"info","message":"Order paid: ORD-1023 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:34:07"}
+{"level":"info","message":"Order paid: ORD-1032 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:34:12"}
+{"level":"info","message":"Order paid: ORD-1033 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:34:34"}
+{"level":"info","message":"Table 1 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:34:41"}
+{"level":"info","message":"Order created: ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:34:53"}
+{"level":"info","message":"Table 2 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:35:21"}
+{"level":"info","message":"Table 13 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:35:24"}
+{"level":"info","message":"Table 5 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:35:42"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:35:50"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:35:59"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:36:05"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:36:13"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:36:19"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:39:31"}
+{"level":"info","message":"Order created: ORD-1036 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:39:58"}
+{"level":"info","message":"Items added to order ORD-1036 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:40:28"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:43:19"}
+{"level":"info","message":"Order created: ORD-1037 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:44:28"}
+{"level":"info","message":"Order paid: ORD-1037 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:46:27"}
+{"level":"info","message":"Order created: ORD-1038 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:47:05"}
+{"level":"info","message":"Order paid: ORD-1038 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:47:25"}
+{"level":"info","message":"Order created: ORD-1039 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:48:05"}
+{"level":"info","message":"Order paid: ORD-1039 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:49:53"}
+{"level":"info","message":"Order paid: ORD-1036 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:50:28"}
+{"level":"info","message":"QR token generated for Table 1 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:51:46"}
+{"level":"info","message":"QR token generated for Table 6 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:53:01"}
+{"level":"info","message":"QR Order placed: ORD-1040 Table 6 by shyam","service":"chiya-chowk-api","timestamp":"2026-05-10 14:53:55"}
+{"level":"info","message":"Items added to order ORD-1040 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:54:19"}
+{"level":"info","message":"QR Order ORD-1040 status → preparing by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:55:45"}
+{"level":"info","message":"QR Order ORD-1040 status → ready by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:56:12"}
+{"level":"info","message":"QR Order ORD-1040 status → served by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:56:25"}
+{"level":"info","message":"QR Order ORD-1040 status → completed by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:56:35"}
+{"level":"info","message":"Order paid: ORD-1040 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:56:48"}
+{"level":"info","message":"Order created: ORD-1041 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:57:52"}
+{"level":"info","message":"Items added to order ORD-1041 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 14:58:11"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:20:37"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:27:29"}
+{"level":"info","message":"Order created: ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:46:24"}
+{"level":"info","message":"Items added to order ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:46:48"}
+{"level":"info","message":"Items added to order ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:48:16"}
+{"level":"info","message":"Order paid: ORD-1042 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:48:33"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:55:29"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 15:59:57"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-05-10 16:00:07"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-10 16:00:20"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-10 16:00:20"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-10 16:00:56"}
+{"level":"info","message":"Items added to order ORD-1035 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 16:01:08"}
+{"level":"info","message":"Partial payment on ORD-1035: Rs.2000 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 16:01:29"}
+{"level":"info","message":"Partial payment on ORD-1041: Rs.80 by admin","service":"chiya-chowk-api","timestamp":"2026-05-10 16:02:01"}

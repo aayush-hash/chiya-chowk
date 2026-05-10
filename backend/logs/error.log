@@ -74,3 +74,6 @@
 {"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:16:44"}
 {"level":"error","message":"401 - Invalid credentials - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-04-27 20:25:39"}
 {"level":"error","message":"500 - Validation failed: price: Price seems too high - /api/menu/69f766c25042a1ebdb52575a - PUT - ::1","service":"chiya-chowk-api","timestamp":"2026-05-03 22:44:48"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED 127.0.0.1:27017","service":"chiya-chowk-api","timestamp":"2026-05-10 13:43:52"}
+{"level":"error","message":"400 - Cannot clear table with unpaid order. Mark order as paid first. - /api/tables/6a003d89e32c1dcd5c765f3e/clear - PATCH - ::1","service":"chiya-chowk-api","timestamp":"2026-05-10 14:28:05"}
+{"level":"error","message":"400 - Cannot change status of occupied table without clearing order - /api/tables/6a003d89e32c1dcd5c765f42/status - PATCH - ::1","service":"chiya-chowk-api","timestamp":"2026-05-10 14:30:12"}

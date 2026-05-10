@@ -453,6 +453,60 @@ exports.addItemsToOrder = async (req, res, next) => {
   }
 };
 
+
+// orderController.js — add these two exports
+
+// @desc    Partial payment
+// @route   PUT /api/orders/:id/partial-pay
+exports.partialPay = async (req, res, next) => {
+  try {
+    const { amountReceived, paymentMethod } = req.body;
+    const order = await Order.findById(req.params.id);
+    if (!order) return next(new AppError('Order not found', 404));
+    if (order.paymentStatus === 'paid') return next(new AppError('Order already fully paid', 400));
+
+    const paid = (order.amountPaid || 0) + parseFloat(amountReceived);
+    const remaining = order.total - paid;
+
+    order.amountPaid = paid;
+    order.amountReceived = paid;
+    order.remainingAmount = Math.max(0, remaining);
+    order.paymentMethod = paymentMethod || order.paymentMethod;
+
+    if (remaining <= 0) {
+      order.paymentStatus = 'paid';
+      order.orderStatus = 'completed';
+      order.paidAt = new Date();
+      order.changeGiven = Math.abs(remaining);
+    } else {
+      order.paymentStatus = 'partial';
+    }
+
+    await order.save();
+    logger.info(`Partial payment on ${order.orderId}: Rs.${amountReceived} by ${req.user.username}`);
+    res.json({ success: true, message: `Rs. ${amountReceived} recorded`, order });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update customer details
+// @route   PUT /api/orders/:id/customer
+exports.updateCustomer = async (req, res, next) => {
+  try {
+    const { customerName, customerPhone, note } = req.body;
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { customerName, customerPhone, note },
+      { new: true }
+    );
+    if (!order) return next(new AppError('Order not found', 404));
+    res.json({ success: true, order });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Sales report
 // @route   GET /api/orders/stats/report
 // @access  Private (admin/manager)
