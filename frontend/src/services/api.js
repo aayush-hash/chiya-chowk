@@ -4,9 +4,7 @@ import toast from 'react-hot-toast';
 const api = axios.create({
   baseURL: 'https://chiya-chowk.onrender.com/api',
   timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
 // Request interceptor - attach token
