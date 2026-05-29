@@ -1,270 +1,254 @@
-import axios from "axios";
-import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+/**
+ * QRMenuPage.jsx — Customer QR ordering experience for Chiya Chowk
+ *
+ * FULL FLOW MODEL
+ * ───────────────
+ * Table FREE, no session saved
+ *   loading → info (enter name) → menu → place order → tracking
+ *
+ * Table FREE, same tab (session saved after previous paid order)
+ *   loading → menu  (name already known, skip name screen)
+ *
+ * Table OCCUPIED (unpaid order exists)
+ *   loading → existing → track  OR  → menu (add items to same order)
+ *
+ * Tracker: order still cooking
+ *   tracking → menu (Add More)    → cart submits via add-items API
+ *
+ * Tracker: order done / cancelled
+ *   tracking → menu (New Order)   → cart submits via new-order API
+ *              name is remembered, activeOrder is cleared
+ *
+ * TABLE AVAILABILITY
+ * ──────────────────
+ * The server checks paymentStatus:'unpaid' + orderStatus not in [completed,cancelled].
+ * When staff marks bill paid → table is freed → next scan sees no existingOrder.
+ * sessionStorage preserves the customer name in the same browser tab so they
+ * never have to re-enter it within the same session. Clearing sessionStorage
+ * (or a new incognito tab) always starts fresh.
+ */
 
-const api = axios.create({ baseURL: "/api", timeout: 15000 });
+import axios from 'axios';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 
-// ===== STATUS TRACKER =====
-const OrderTracker = ({ orderId, onBack }) => {
-  const [order, setOrder] = useState(null);
+const api = axios.create({ baseURL: '/api', timeout: 15000 });
+
+// ─── sessionStorage: remember customer name across orders ─────────────────────
+const SK = 'chiya_session';
+const saveSession  = (name, phone) => { try { sessionStorage.setItem(SK, JSON.stringify({ name, phone })); } catch {} };
+const loadSession  = ()            => { try { return JSON.parse(sessionStorage.getItem(SK) || 'null'); } catch { return null; } };
+const clearSession = ()            => { try { sessionStorage.removeItem(SK); } catch {} };
+
+// ─── Global CSS (injected once per page load) ─────────────────────────────────
+if (typeof document !== 'undefined' && !document.getElementById('qr-styles')) {
+  const s = document.createElement('style');
+  s.id = 'qr-styles';
+  s.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@500;700&family=Lora:ital,wght@0,600;1,400&display=swap');
+    @keyframes spin    { to { transform:rotate(360deg); } }
+    @keyframes slideUp { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
+    @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+    @keyframes floatIn { from { opacity:0; transform:translateX(-50%) translateY(12px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+    @keyframes glow    { 0%,100% { box-shadow:0 0 0 0 rgba(212,134,42,0); } 50% { box-shadow:0 0 0 7px rgba(212,134,42,0.22); } }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+    html, body { background:#0a0804; }
+    input, textarea { -webkit-appearance:none; }
+    input:focus, textarea:focus { outline:none !important; border-color:#d4862a !important; box-shadow:0 0 0 3px rgba(212,134,42,0.15) !important; }
+    ::-webkit-scrollbar { width:3px; height:3px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#2a1f14; border-radius:4px; }
+    .slide-up { animation:slideUp 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+    .fade-in  { animation:fadeIn  0.25s ease both; }
+  `;
+  document.head.appendChild(s);
+}
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  bg:'#0a0804', card:'#0f0b06', card2:'#140e08',
+  border:'#241a0e', border2:'#2e2010',
+  amber:'#d4862a', amber2:'#b8721f', amberGlow:'rgba(212,134,42,0.15)',
+  text:'#f5e6c8', text2:'#c9a96e', text3:'#8a6a46', text4:'#5a4030',
+  red:'#e05c5c',  green:'#4caf88',
+};
+
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const S = {
+  page:    { minHeight:'100vh', background:T.bg, fontFamily:"'DM Sans',system-ui,sans-serif", color:T.text, maxWidth:480, margin:'0 auto' },
+  center:  { minHeight:'100vh', background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', fontFamily:"'DM Sans',system-ui,sans-serif", color:T.text, padding:'24px 20px', textAlign:'center' },
+  input:   { width:'100%', background:T.card2, border:`1.5px solid ${T.border2}`, borderRadius:12, color:T.text, padding:'13px 15px', fontSize:15, fontFamily:"'DM Sans',system-ui,sans-serif", display:'block', marginBottom:14, transition:'border-color 0.2s, box-shadow 0.2s' },
+  label:   { display:'block', fontSize:11, color:T.text3, marginBottom:6, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase' },
+  btnA:    { background:`linear-gradient(135deg,${T.amber},${T.amber2})`, color:'#1a0f00', border:'none', borderRadius:14, padding:'14px 0', fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:"'DM Sans',system-ui,sans-serif", width:'100%', display:'block', transition:'opacity 0.15s' },
+  btnB:    { background:T.card2, color:T.text2, border:`1.5px solid ${T.border2}`, borderRadius:14, padding:'12px 0', fontWeight:600, fontSize:14, cursor:'pointer', fontFamily:"'DM Sans',system-ui,sans-serif", width:'100%', display:'block' },
+  spinner: { width:32, height:32, border:`3px solid ${T.border2}`, borderTop:`3px solid ${T.amber}`, borderRadius:'50%', animation:'spin 0.8s linear infinite' },
+};
+
+const qtyBtn = { width:32, height:32, background:T.card2, color:T.amber, border:`1.5px solid ${T.border2}`, borderRadius:9, fontSize:18, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'DM Sans',system-ui,sans-serif", flexShrink:0 };
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ORDER TRACKER
+// Status is polled every 8 s. Two callbacks:
+//   onAddMore  — keep activeOrder, go back to menu (append items)
+//   onNewOrder — clear activeOrder, go back to menu (fresh order)
+// ═════════════════════════════════════════════════════════════════════════════
+const STEPS = [
+  { key:'pending',   label:'Received',  emoji:'📋' },
+  { key:'preparing', label:'Preparing', emoji:'👨‍🍳' },
+  { key:'ready',     label:'Ready!',    emoji:'✅' },
+  { key:'served',    label:'Served',    emoji:'🍵' },
+];
+
+const OrderTracker = ({ orderId, tableNumber, onAddMore, onNewOrder }) => {
+  const [order,   setOrder  ] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchStatus = useCallback(async () => {
+  const poll = useCallback(async () => {
+    if (!orderId) return;
     try {
       const { data } = await api.get(`/qr/track/${orderId}`);
       setOrder(data.order);
-    } catch (err) {
-      console.error("Tracking error", err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error('tracker poll', e); }
+    finally { setLoading(false); }
   }, [orderId]);
 
   useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 8000);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
+    poll();
+    const iv = setInterval(poll, 8000);
+    return () => clearInterval(iv);
+  }, [poll]);
 
-  const steps = [
-    { key: "pending", label: "Received", emoji: "📋" },
-    { key: "preparing", label: "Preparing", emoji: "👨‍🍳" },
-    { key: "ready", label: "Ready", emoji: "✅" },
-    { key: "served", label: "Served", emoji: "🍵" },
-  ];
+  if (!orderId) return (
+    <div style={S.center}>
+      <p style={{ color:T.text3, marginBottom:20 }}>No active order.</p>
+      <button style={{ ...S.btnB, width:'auto', padding:'11px 24px' }} onClick={onNewOrder}>← Order Something</button>
+    </div>
+  );
 
-  const stepIndex = steps.findIndex((s) => s.key === order?.orderStatus);
+  if (loading) return (
+    <div style={S.center}>
+      <div style={{ fontSize:52, marginBottom:16 }}>🍵</div>
+      <div style={S.spinner} />
+      <p style={{ color:T.text3, marginTop:14, fontSize:14 }}>Loading your order…</p>
+    </div>
+  );
 
-  if (loading)
-    return (
-      <div style={styles.fullCenter}>
-        <div style={styles.spinner} />
-        <p style={{ color: "#a07850", marginTop: 12, fontSize: 14 }}>
-          Loading your order...
-        </p>
-      </div>
-    );
+  if (!order) return (
+    <div style={S.center}>
+      <div style={{ fontSize:48, marginBottom:12 }}>❓</div>
+      <p style={{ color:T.red, marginBottom:20 }}>Order not found.</p>
+      <button style={{ ...S.btnB, width:'auto', padding:'11px 24px' }} onClick={onNewOrder}>← Go back</button>
+    </div>
+  );
 
-  if (!order)
-    return (
-      <div style={styles.fullCenter}>
-        <p style={{ color: "#e05c5c" }}>Order not found.</p>
-        <button style={styles.btnSecondary} onClick={onBack}>
-          ← Back
-        </button>
-      </div>
-    );
-
-  const isCancelled = order.orderStatus === "cancelled";
-  const isCompleted =
-    order.orderStatus === "completed" || order.orderStatus === "served";
+  const stepIdx     = STEPS.findIndex(s => s.key === order.orderStatus);
+  const isCancelled = order.orderStatus === 'cancelled';
+  const isCompleted = order.orderStatus === 'completed';
+  const isServed    = order.orderStatus === 'served';
+  const isDone      = isCompleted || isServed || isCancelled;
+  // Can only add more while order is still in kitchen
+  const canAdd      = !isDone && !!onAddMore && ['pending','preparing'].includes(order.orderStatus);
+  const pct         = stepIdx < 0 ? 0 : (stepIdx / (STEPS.length - 1)) * 100;
+  const info        = order.statusInfo || {};
 
   return (
-    <div style={styles.page}>
-      <div style={styles.trackerCard}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 52, marginBottom: 8 }}>
-            {order.statusInfo?.emoji}
+    <div style={{ ...S.page, paddingBottom:36 }} className="fade-in">
+      {/* Status hero */}
+      <div style={{ background:'linear-gradient(180deg,rgba(212,134,42,0.08) 0%,transparent 100%)', padding:'30px 20px 22px', borderBottom:`1px solid ${T.border}`, textAlign:'center' }}>
+        <div style={{ fontSize:54, lineHeight:1, marginBottom:10 }}>{info.emoji || '📋'}</div>
+        <div style={{ fontFamily:"'Lora',Georgia,serif", fontSize:23, fontWeight:600, color:T.text, marginBottom:7 }}>{info.label}</div>
+        <div style={{ fontSize:13, color:T.text3, lineHeight:1.7, maxWidth:280, margin:'0 auto' }}>{info.message}</div>
+        {isCancelled && (
+          <div style={{ marginTop:14, fontSize:13, color:T.red, background:'rgba(224,92,92,0.10)', border:'1px solid rgba(224,92,92,0.25)', borderRadius:10, padding:'8px 14px', display:'inline-block' }}>
+            Ask staff for assistance.
           </div>
-          <h2 style={{ ...styles.heading, fontSize: 22, margin: 0 }}>
-            {order.statusInfo?.label}
-          </h2>
-          <p style={{ color: "#a07850", marginTop: 6, fontSize: 14 }}>
-            {order.statusInfo?.message}
-          </p>
-        </div>
+        )}
+      </div>
 
-        {/* Progress bar */}
+      <div style={{ padding:'18px 16px' }}>
+
+        {/* ── Progress stepper ── */}
         {!isCancelled && (
-          <div style={{ marginBottom: 28 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                position: "relative",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  top: 18,
-                  left: "10%",
-                  right: "10%",
-                  height: 2,
-                  background: "#2a1f14",
-                  zIndex: 0,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: 18,
-                  left: "10%",
-                  height: 2,
-                  zIndex: 1,
-                  background: "#d4862a",
-                  transition: "width 0.8s ease",
-                  width:
-                    stepIndex >= 0
-                      ? `${Math.min(80, stepIndex * (80 / 3))}%`
-                      : "0%",
-                }}
-              />
-              {steps.map((step, i) => (
-                <div
-                  key={step.key}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    zIndex: 2,
-                    flex: 1,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: "50%",
-                      background: i <= stepIndex ? "#d4862a" : "#1a1008",
-                      border: `2px solid ${i <= stepIndex ? "#d4862a" : "#3d2d1a"}`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 16,
-                      transition: "all 0.4s",
-                      boxShadow:
-                        i === stepIndex
-                          ? "0 0 12px rgba(212,134,42,0.5)"
-                          : "none",
-                    }}
-                  >
-                    {i < stepIndex ? "✓" : step.emoji}
+          <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:16, padding:'18px 12px 22px', marginBottom:14 }}>
+            <div style={{ position:'relative', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              {/* Track background */}
+              <div style={{ position:'absolute', top:18, left:'9%', right:'9%', height:2, background:T.border2, zIndex:0 }} />
+              {/* Progress fill */}
+              <div style={{ position:'absolute', top:18, left:'9%', height:2, zIndex:1, background:`linear-gradient(90deg,${T.amber},${T.amber2})`, width:`${pct * 0.82}%`, transition:'width 1s ease' }} />
+              {STEPS.map((step, i) => {
+                const done = i < stepIdx, cur = i === stepIdx;
+                return (
+                  <div key={step.key} style={{ display:'flex', flexDirection:'column', alignItems:'center', zIndex:2, flex:1 }}>
+                    <div style={{ width:38, height:38, borderRadius:'50%', background:done||cur?T.amber:T.card2, border:`2px solid ${done||cur?T.amber:T.border2}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:done?14:18, color:done||cur?'#1a0f00':T.text4, transition:'all 0.5s', animation:cur?'glow 2s ease infinite':'none' }}>
+                      {done ? '✓' : step.emoji}
+                    </div>
+                    <div style={{ fontSize:10, marginTop:7, color:done||cur?T.amber:T.text4, fontWeight:cur?800:500, textAlign:'center', lineHeight:1.3 }}>{step.label}</div>
                   </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: i <= stepIndex ? "#d4862a" : "#6b5040",
-                      marginTop: 5,
-                      fontWeight: i === stepIndex ? 700 : 400,
-                    }}
-                  >
-                    {step.label}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Order info */}
-        <div style={styles.infoBox}>
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Order ID</span>
-            <span
-              style={{
-                ...styles.infoValue,
-                fontFamily: "monospace",
-                color: "#d4862a",
-              }}
-            >
-              {order.orderId}
-            </span>
-          </div>
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Table</span>
-            <span style={styles.infoValue}>Table {order.tableNumber}</span>
-          </div>
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Name</span>
-            <span style={styles.infoValue}>{order.customerName}</span>
-          </div>
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Items</span>
-            <span style={styles.infoValue}>{order.items?.length} items</span>
-          </div>
-        </div>
-
-        {/* Items */}
-        <div style={{ marginBottom: 16 }}>
-          {order.items?.map((item, i) => (
-            <div key={i} style={styles.orderItem}>
-              <span style={{ fontSize: 18 }}>{item.emoji}</span>
-              <span style={{ flex: 1, fontSize: 13 }}>{item.name}</span>
-              <span style={{ color: "#a07850", fontSize: 12 }}>
-                ×{item.qty}
-              </span>
-              <span
-                style={{
-                  fontFamily: "monospace",
-                  color: "#d4862a",
-                  fontSize: 13,
-                }}
-              >
-                Rs. {item.subtotal}
-              </span>
+        {/* ── Order info ── */}
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'13px 15px', marginBottom:12 }}>
+          <div style={{ fontSize:10, color:T.text3, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:10 }}>Order Details</div>
+          {[
+            ['Order ID', <span style={{ fontFamily:'DM Mono,monospace', color:T.amber, fontWeight:700 }}>{order.orderId}</span>],
+            ['Table',    `Table ${order.tableNumber}`],
+            ['Name',     order.customerName],
+            ['Status',   <span style={{ textTransform:'capitalize', color:T.amber, fontWeight:700 }}>{order.orderStatus}</span>],
+          ].map(([lbl, val]) => (
+            <div key={lbl} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:`1px solid ${T.border}`, fontSize:13 }}>
+              <span style={{ color:T.text3 }}>{lbl}</span>
+              <span style={{ color:T.text2, fontWeight:600 }}>{val}</span>
             </div>
           ))}
         </div>
 
-        {/* Total — no tax row */}
-        <div style={styles.totalBox}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 12,
-              color: "#a07850",
-              marginBottom: 4,
-            }}
-          >
-            <span>Subtotal</span>
-            <span>Rs. {order.subtotal}</span>
-          </div>
-          {order.serviceCharge > 0 && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: 12,
-                color: "#a07850",
-                marginBottom: 4,
-              }}
-            >
-              <span>Service Charge</span>
-              <span>Rs. {order.serviceCharge}</span>
+        {/* ── Items ── */}
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'13px 15px', marginBottom:14 }}>
+          <div style={{ fontSize:10, color:T.text3, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:10 }}>Items Ordered</div>
+          {order.items?.map((item, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:`1px solid ${T.border}`, fontSize:13 }}>
+              <span style={{ fontSize:20 }}>{item.emoji}</span>
+              <span style={{ flex:1, color:T.text }}>{item.name}</span>
+              <span style={{ color:T.text3, marginRight:4 }}>×{item.qty}</span>
+              <span style={{ fontFamily:'DM Mono,monospace', color:T.amber, fontWeight:700 }}>Rs. {item.subtotal}</span>
             </div>
-          )}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 16,
-              fontWeight: 700,
-              color: "#d4862a",
-              marginTop: 8,
-              paddingTop: 8,
-              borderTop: "1px solid #2a1f14",
-            }}
-          >
-            <span>Total</span>
-            <span>Rs. {order.total}</span>
+          ))}
+          {/* Total */}
+          <div style={{ marginTop:10 }}>
+            {order.serviceCharge > 0 && (
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:T.text3, marginBottom:4 }}>
+                <span>Service Charge</span><span>Rs. {order.serviceCharge}</span>
+              </div>
+            )}
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:17, fontWeight:800, color:T.amber, paddingTop:8, borderTop:`1px solid ${T.border}`, marginTop:4 }}>
+              <span>Total</span>
+              <span style={{ fontFamily:'DM Mono,monospace' }}>Rs. {order.total}</span>
+            </div>
           </div>
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 16 }}>
-          <p style={{ fontSize: 11, color: "#6b5040", marginBottom: 12 }}>
-            Auto-refreshing every 8 seconds • {new Date().toLocaleTimeString()}
-          </p>
-          {!isCompleted && !isCancelled && (
-            <button style={styles.btnSecondary} onClick={onBack}>
-              + Order More Items
+        <div style={{ textAlign:'center', fontSize:11, color:T.text4, marginBottom:18 }}>
+          Auto-refreshing every 8 seconds
+        </div>
+
+        {/* ── Actions ── */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {/*
+           * canAdd: order still in kitchen → show "Add More Items"
+           * isDone: order done/cancelled   → show "Start New Order"
+           */}
+          {canAdd && (
+            <button style={S.btnB} onClick={onAddMore}>
+              ➕ Add More Items
             </button>
           )}
-          {(isCompleted || isCancelled) && (
-            <button style={styles.btnPrimary} onClick={onBack}>
-              Start New Order
+          {isDone && (
+            <button style={S.btnA} onClick={onNewOrder}>
+              🍵 Place Another Order
             </button>
           )}
         </div>
@@ -273,518 +257,472 @@ const OrderTracker = ({ orderId, onBack }) => {
   );
 };
 
-// ===== MAIN QR MENU PAGE =====
+// ═════════════════════════════════════════════════════════════════════════════
+// MENU ITEM CARD
+// ═════════════════════════════════════════════════════════════════════════════
+const MenuItemCard = ({ item, qty, onAdd, onRemove }) => (
+  <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 14px', background:qty>0?T.amberGlow:T.card, border:`1.5px solid ${qty>0?'rgba(212,134,42,0.3)':T.border}`, borderRadius:14, marginBottom:9, transition:'background 0.2s, border-color 0.2s' }}>
+    <div style={{ fontSize:38, flexShrink:0, lineHeight:1 }}>{item.emoji}</div>
+    <div style={{ flex:1, minWidth:0 }}>
+      <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3, lineHeight:1.3 }}>{item.name}</div>
+      {item.description && (
+        <div style={{ fontSize:11, color:T.text4, marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.description}</div>
+      )}
+      <div style={{ fontFamily:'DM Mono,monospace', fontSize:14, fontWeight:700, color:T.amber }}>Rs. {item.price}</div>
+    </div>
+    <div style={{ flexShrink:0 }}>
+      {qty === 0 ? (
+        <button onClick={onAdd} style={{ background:T.amberGlow, color:T.amber, border:'1.5px solid rgba(212,134,42,0.3)', borderRadius:10, padding:'8px 16px', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:"'DM Sans',system-ui", whiteSpace:'nowrap' }}>
+          + Add
+        </button>
+      ) : (
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <button onClick={onRemove} style={qtyBtn}>−</button>
+          <span style={{ minWidth:22, textAlign:'center', fontWeight:800, color:T.amber, fontSize:15 }}>{qty}</span>
+          <button onClick={onAdd}    style={qtyBtn}>+</button>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MAIN PAGE COMPONENT
+// ═════════════════════════════════════════════════════════════════════════════
 const QRMenuPage = () => {
   const { token } = useParams();
-  const [phase, setPhase] = useState("loading");
-  const [tableInfo, setTableInfo] = useState(null);
-  const [menu, setMenu] = useState({});
-  const [categories, setCategories] = useState([]);
-  const [settings, setSettings] = useState({});
-  const [error, setError] = useState("");
-  const [activeCategory, setActiveCategory] = useState("");
-  const [cart, setCart] = useState([]);
-  const [search, setSearch] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [note, setNote] = useState("");
-  const [showCart, setShowCart] = useState(false);
-  const [placing, setPlacing] = useState(false);
-  const [placedOrderId, setPlacedOrderId] = useState(null);
-  const [existingOrder, setExistingOrder] = useState(null);
 
+  // ── Server data ──────────────────────────────────────────────────────────────
+  const [phase,      setPhase     ] = useState('loading');
+  const [tableInfo,  setTableInfo ] = useState(null);
+  const [menu,       setMenu      ] = useState({});
+  const [categories, setCategories] = useState([]);
+  const [settings,   setSettings  ] = useState({});
+  const [error,      setError     ] = useState('');
+
+  /**
+   * activeOrder — the current in-progress (unpaid) order for this table.
+   * • Set from server's existingOrder on scan, or set after a successful place.
+   * • Kept during "Add More" (so submission appends to it).
+   * • Cleared via handleNewOrder (so next submission creates a fresh order).
+   * • null = table is free / customer wants a brand-new order.
+   */
+  const [activeOrder, setActiveOrder] = useState(null);
+
+  /**
+   * trackedId — the orderId string (e.g. "CC-042") shown in OrderTracker.
+   * Updated after every place/add-items call.
+   */
+  const [trackedId, setTrackedId] = useState(null);
+
+  // ── Customer identity — never prompt again in the same session ────────────
+  const [customerName,  setCustomerName ] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+
+  // ── Menu browsing ─────────────────────────────────────────────────────────
+  const [activeCategory, setActiveCategory] = useState('');
+  const [cart,   setCart  ] = useState([]);
+  const [search, setSearch] = useState('');
+  const [note,   setNote  ] = useState('');
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+  const [showCart, setShowCart] = useState(false);
+  const [placing,  setPlacing ] = useState(false);
+  const nameRef = useRef(null);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // INITIAL LOAD: scan token → decide phase
+  // ──────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchMenu = async () => {
+    const load = async () => {
       try {
         const { data } = await api.get(`/qr/scan/${token}`);
         setTableInfo(data.table);
         setMenu(data.menu);
         setCategories(data.categories);
         setSettings(data.settings);
-        setActiveCategory(data.categories[0] || "");
+        setActiveCategory(data.categories[0] || '');
 
         if (data.existingOrder) {
-          setExistingOrder(data.existingOrder);
-          setCustomerName(data.existingOrder.customerName || "");
-          setCustomerPhone(data.existingOrder.customerPhone || "");
-          setPlacedOrderId(data.existingOrder.orderId);
-          setPhase("existing");
+          /**
+           * TABLE OCCUPIED — server found an unpaid order for this table.
+           * Pull customer identity directly from the order (no name prompt).
+           * Save to sessionStorage so Add-More / New-Order never re-prompts.
+           */
+          const ex = data.existingOrder;
+          setActiveOrder(ex);
+          setTrackedId(ex.orderId);
+          setCustomerName(ex.customerName  || '');
+          setCustomerPhone(ex.customerPhone || '');
+          saveSession(ex.customerName, ex.customerPhone);
+          setPhase('existing');
         } else {
-          setPhase("info");
+          /**
+           * TABLE FREE — no unpaid order exists.
+           * Could be:
+           *   (a) Brand-new scan — show info (name entry).
+           *   (b) Same tab after previous order was paid — sessionStorage has name.
+           *       Skip info screen and go straight to menu.
+           * Either way: clear any stale activeOrder from a previous session.
+           */
+          setActiveOrder(null);
+          setTrackedId(null);
+          const saved = loadSession();
+          if (saved?.name) {
+            // Same browser tab — customer already identified
+            setCustomerName(saved.name);
+            setCustomerPhone(saved.phone || '');
+            setPhase('menu');
+          } else {
+            setPhase('info');
+          }
         }
       } catch (err) {
-        setError(
-          err.response?.data?.message ||
-            "Invalid QR code. Please ask staff for help.",
-        );
-        setPhase("error");
+        setError(err.response?.data?.message || 'Invalid QR code. Please ask staff for help.');
+        setPhase('error');
       }
     };
-    fetchMenu();
+    load();
   }, [token]);
 
-  const addToCart = (item) => {
-    setCart((prev) => {
-      const existing = prev.find((c) => c.menuItem === item._id);
-      if (existing)
-        return prev.map((c) =>
-          c.menuItem === item._id ? { ...c, qty: c.qty + 1 } : c,
-        );
-      return [
-        ...prev,
-        {
-          menuItem: item._id,
-          name: item.name,
-          emoji: item.emoji,
-          price: item.price,
-          qty: 1,
-        },
-      ];
-    });
-  };
+  // ──────────────────────────────────────────────────────────────────────────
+  // CART HELPERS
+  // ──────────────────────────────────────────────────────────────────────────
+  const addToCart = (item) => setCart(prev => {
+    const ex = prev.find(c => c.menuItem === item._id);
+    if (ex) return prev.map(c => c.menuItem === item._id ? { ...c, qty:c.qty+1 } : c);
+    return [...prev, { menuItem:item._id, name:item.name, emoji:item.emoji, price:item.price, qty:1 }];
+  });
 
-  const removeFromCart = (menuItemId) => {
-    setCart((prev) => {
-      const existing = prev.find((c) => c.menuItem === menuItemId);
-      if (existing?.qty === 1)
-        return prev.filter((c) => c.menuItem !== menuItemId);
-      return prev.map((c) =>
-        c.menuItem === menuItemId ? { ...c, qty: c.qty - 1 } : c,
-      );
-    });
-  };
+  const removeFromCart = (id) => setCart(prev => {
+    const ex = prev.find(c => c.menuItem === id);
+    if (ex?.qty === 1) return prev.filter(c => c.menuItem !== id);
+    return prev.map(c => c.menuItem === id ? { ...c, qty:c.qty-1 } : c);
+  });
 
-  const cartQty = (menuItemId) =>
-    cart.find((c) => c.menuItem === menuItemId)?.qty || 0;
+  const cartQty       = (id) => cart.find(c => c.menuItem === id)?.qty || 0;
+  const cartTotal     = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const cartCount     = cart.reduce((s, c) => s + c.qty, 0);
+  const serviceRate   = settings.enableServiceCharge ? (settings.serviceChargeRate || 0) : 0;
+  const serviceCharge = Math.round(cartTotal * serviceRate / 100);
+  const grandTotal    = cartTotal + serviceCharge;
 
-  const cartTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const cartCount = cart.reduce((s, c) => s + c.qty, 0);
-  const serviceCharge = settings.enableServiceCharge
-    ? Math.round((cartTotal * (settings.serviceChargeRate || 0)) / 100)
-    : 0;
-  const grandTotal = cartTotal + serviceCharge;
-
-  const filteredItems = (cat) => {
-    const items = menu[cat] || [];
-    if (!search) return items;
-    return items.filter((i) =>
-      i.name.toLowerCase().includes(search.toLowerCase()),
-    );
-  };
-
+  // ──────────────────────────────────────────────────────────────────────────
+  // PLACE ORDER / ADD ITEMS
+  // ──────────────────────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
+    /**
+     * Guard: name should always be set before reaching the menu phase.
+     * If somehow it's empty (e.g. edge case), redirect to info — no alert.
+     */
     if (!customerName.trim() || customerName.trim().length < 2) {
-      alert("Please enter your name (at least 2 characters)");
+      setShowCart(false);
+      setPhase('info');
       return;
     }
-    if (cart.length === 0) {
-      alert("Your cart is empty!");
-      return;
-    }
+    if (cart.length === 0) return;
 
     setPlacing(true);
     try {
-      if (existingOrder && existingOrder._id) {
+      const itemsPayload = cart.map(c => ({ menuItem:c.menuItem, qty:c.qty, name:c.name }));
+
+      if (activeOrder?._id) {
+        // ── Add-Items path: append to existing order ───────────────────────
         await api.post(`/qr/order/${token}/add-items`, {
-          orderId: existingOrder._id,
-          items: cart.map((c) => ({
-            menuItem: c.menuItem,
-            qty: c.qty,
-            name: c.name,
-          })),
+          orderId: activeOrder._id,
+          items:   itemsPayload,
         });
-        setPlacedOrderId(existingOrder.orderId);
+        setTrackedId(activeOrder.orderId);
       } else {
+        // ── New-Order path ─────────────────────────────────────────────────
         const { data } = await api.post(`/qr/order/${token}`, {
-          customerName: customerName.trim(),
+          customerName:  customerName.trim(),
           customerPhone: customerPhone.trim(),
-          items: cart.map((c) => ({
-            menuItem: c.menuItem,
-            qty: c.qty,
-            name: c.name,
-          })),
+          items:         itemsPayload,
           note,
         });
-        setPlacedOrderId(data.order.orderId);
+        const placed = data.order;
+        setTrackedId(placed.orderId);
+        // Store the new order as activeOrder so subsequent "Add More" works
+        setActiveOrder({
+          _id:          placed._id,
+          orderId:      placed.orderId,
+          orderStatus:  'pending',
+          customerName: customerName.trim(),
+          customerPhone:customerPhone.trim(),
+          items:        placed.items,
+          total:        placed.total,
+        });
+        // Persist name so the customer never types it again in this tab
+        saveSession(customerName.trim(), customerPhone.trim());
       }
+
       setCart([]);
+      setNote('');
       setShowCart(false);
-      setPhase("tracking");
+      setPhase('tracking');
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to place order. Try again.");
+      alert(err.response?.data?.message || 'Failed to place order. Please try again.');
     } finally {
       setPlacing(false);
     }
   };
 
-  // ===== RENDER PHASES =====
-  if (phase === "loading")
-    return (
-      <div style={styles.fullCenter}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🍵</div>
-        <div style={styles.spinner} />
-        <p style={{ color: "#a07850", marginTop: 12 }}>Loading menu...</p>
-      </div>
-    );
+  // ──────────────────────────────────────────────────────────────────────────
+  // NAVIGATION HELPERS
+  // ──────────────────────────────────────────────────────────────────────────
 
-  if (phase === "error")
-    return (
-      <div style={styles.fullCenter}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>❌</div>
-        <p
-          style={{
-            color: "#e05c5c",
-            textAlign: "center",
-            maxWidth: 280,
-            lineHeight: 1.6,
-          }}
-        >
-          {error}
+  /**
+   * handleAddMore — order is still cooking, customer wants to add items.
+   * activeOrder stays set → submission will append via add-items API.
+   */
+  const handleAddMore = () => {
+    setCart([]);
+    setSearch('');
+    setPhase('menu');
+  };
+
+  /**
+   * handleNewOrder — current order is done/cancelled.
+   * Clear activeOrder so next submission creates a brand-new order.
+   * Name is already in state + sessionStorage — no name prompt shown.
+   */
+  const handleNewOrder = () => {
+    setActiveOrder(null);  // next cart submit → new order
+    setTrackedId(null);
+    setCart([]);
+    setNote('');
+    setSearch('');
+    // Name preserved in state and sessionStorage — go straight to menu
+    setPhase('menu');
+  };
+
+  // ─── Filtered items for current view ──────────────────────────────────────
+  const visibleItems = search
+    ? Object.values(menu).flat().filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
+    : (menu[activeCategory] || []);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER — LOADING
+  // ══════════════════════════════════════════════════════════════════════════
+  if (phase === 'loading') return (
+    <div style={S.center}>
+      <div style={{ fontSize:56, marginBottom:20 }}>🍵</div>
+      <div style={S.spinner} />
+      <p style={{ color:T.text3, marginTop:16, fontSize:14 }}>Loading menu…</p>
+    </div>
+  );
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER — ERROR
+  // ══════════════════════════════════════════════════════════════════════════
+  if (phase === 'error') return (
+    <div style={S.center}>
+      <div style={{ fontSize:56, marginBottom:16 }}>❌</div>
+      <p style={{ color:T.red, textAlign:'center', maxWidth:280, lineHeight:1.7, fontSize:15 }}>{error}</p>
+      <p style={{ color:T.text4, fontSize:12, marginTop:10 }}>Please ask staff for assistance.</p>
+    </div>
+  );
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER — TRACKING
+  // ══════════════════════════════════════════════════════════════════════════
+  if (phase === 'tracking') return (
+    <OrderTracker
+      orderId={trackedId}
+      tableNumber={tableInfo?.number}
+      onAddMore={activeOrder ? handleAddMore : null}
+      onNewOrder={handleNewOrder}
+    />
+  );
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER — EXISTING ORDER (table occupied, scan by same or different person)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (phase === 'existing') return (
+    <div style={{ ...S.page, padding:'32px 18px 44px' }} className="slide-up">
+      {/* Header */}
+      <div style={{ textAlign:'center', marginBottom:28 }}>
+        <div style={{ fontSize:52, marginBottom:8 }}>🍵</div>
+        <div style={{ fontFamily:"'Lora',Georgia,serif", fontSize:26, fontWeight:600, color:T.text, marginBottom:4 }}>
+          {settings.cafeName || 'Chiya Chowk'}
+        </div>
+        <div style={{ fontSize:13, color:T.text3 }}>
+          Table {tableInfo?.number} · Welcome back,{' '}
+          <strong style={{ color:T.text2 }}>{activeOrder?.customerName || customerName}</strong>!
+        </div>
+      </div>
+
+      {/* Active order summary */}
+      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:16, padding:'18px 16px', marginBottom:16 }}>
+        <div style={{ fontSize:10, color:T.text3, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:12 }}>
+          📋 Active Order
+        </div>
+        {[
+          ['Order ID',  <span style={{ fontFamily:'DM Mono,monospace', color:T.amber, fontWeight:700 }}>{activeOrder?.orderId}</span>],
+          ['Customer',  activeOrder?.customerName],
+          ['Status',    <span style={{ textTransform:'capitalize', color:T.amber, fontWeight:700 }}>{activeOrder?.orderStatus}</span>],
+          ['Items',     `${activeOrder?.items?.length || 0} item(s)`],
+          ['Total',     <span style={{ fontFamily:'DM Mono,monospace', color:T.amber, fontWeight:800 }}>Rs. {activeOrder?.total}</span>],
+        ].map(([lbl, val]) => (
+          <div key={lbl} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 0', borderBottom:`1px solid ${T.border}`, fontSize:13 }}>
+            <span style={{ color:T.text3 }}>{lbl}</span>
+            <span style={{ color:T.text2, fontWeight:600 }}>{val}</span>
+          </div>
+        ))}
+
+        {/* Item list */}
+        <div style={{ marginTop:12 }}>
+          {activeOrder?.items?.map((item, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:`1px solid ${T.border}`, fontSize:13 }}>
+              <span style={{ fontSize:18 }}>{item.emoji}</span>
+              <span style={{ flex:1, color:T.text }}>{item.name}</span>
+              <span style={{ color:T.text3 }}>×{item.qty}</span>
+              <span style={{ fontFamily:'DM Mono,monospace', color:T.amber }}>Rs. {item.subtotal || item.price * item.qty}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <button style={S.btnA} onClick={() => setPhase('tracking')}>
+          📋 Track My Order
+        </button>
+        {/* Only show Add More if order is still being processed */}
+        {['pending','preparing'].includes(activeOrder?.orderStatus) && (
+          <button style={S.btnB} onClick={() => setPhase('menu')}>
+            ➕ Add More Items
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER — INFO (name entry — only shown when no session and table is free)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (phase === 'info') return (
+    <div style={{ ...S.page, paddingBottom:40 }} className="slide-up">
+      {/* Hero */}
+      <div style={{ background:'linear-gradient(170deg,rgba(212,134,42,0.09) 0%,transparent 55%)', padding:'44px 24px 30px', textAlign:'center', borderBottom:`1px solid ${T.border}` }}>
+        <div style={{ fontSize:62, marginBottom:10 }}>🍵</div>
+        <div style={{ fontFamily:"'Lora',Georgia,serif", fontSize:30, fontWeight:600, color:T.text, marginBottom:6 }}>
+          {settings.cafeName || 'Chiya Chowk'}
+        </div>
+        <div style={{ fontSize:14, color:T.text3 }}>Scan &amp; Order · Table {tableInfo?.number}</div>
+      </div>
+
+      <div style={{ padding:'24px 20px 0' }}>
+        {/* Table badge */}
+        <div style={{ background:T.amberGlow, border:'1px solid rgba(212,134,42,0.22)', borderRadius:12, padding:'12px 16px', display:'flex', justifyContent:'space-between', marginBottom:24 }}>
+          {[['📍 Table', `Table ${tableInfo?.number}`], ['🪑 Seats', tableInfo?.seats], ['📌 Zone', tableInfo?.location]].map(([lbl, val]) => (
+            <div key={lbl} style={{ textAlign:'center' }}>
+              <div style={{ fontSize:10, color:T.text3, marginBottom:2 }}>{lbl}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:T.amber }}>{val}</div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize:13, color:T.text3, lineHeight:1.7, textAlign:'center', marginBottom:24 }}>
+          Browse the menu, add to cart, and place your order. Staff will bring it to you.
         </p>
+
+        <label style={S.label}>Your Name *</label>
+        <input
+          ref={nameRef}
+          style={S.input}
+          placeholder="Enter your name"
+          value={customerName}
+          onChange={e => setCustomerName(e.target.value)}
+          autoFocus
+          onKeyDown={e => {
+            if (e.key === 'Enter' && customerName.trim().length >= 2) {
+              saveSession(customerName.trim(), customerPhone.trim());
+              setPhase('menu');
+            }
+          }}
+        />
+
+        <label style={S.label}>
+          Phone{' '}
+          <span style={{ color:T.text4, fontWeight:400, textTransform:'none', letterSpacing:0 }}>(optional)</span>
+        </label>
+        <input
+          style={{ ...S.input, marginBottom:28 }}
+          placeholder="98XXXXXXXX"
+          type="tel"
+          value={customerPhone}
+          onChange={e => setCustomerPhone(e.target.value)}
+        />
+
+        <button style={S.btnA} onClick={() => {
+          if (!customerName.trim() || customerName.trim().length < 2) {
+            nameRef.current?.focus();
+            return;
+          }
+          saveSession(customerName.trim(), customerPhone.trim());
+          setPhase('menu');
+        }}>
+          View Menu →
+        </button>
       </div>
-    );
+    </div>
+  );
 
-  if (phase === "tracking")
-    return (
-      <OrderTracker
-        orderId={placedOrderId}
-        onBack={() => {
-          setPhase("menu");
-          setCustomerName("");
-          setNote("");
-        }}
-      />
-    );
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER — MENU (main browsing view)
+  // ══════════════════════════════════════════════════════════════════════════
+  return (
+    <div style={{ ...S.page, paddingBottom:cartCount > 0 ? 96 : 24 }}>
 
-  if (phase === "existing" && existingOrder)
-    return (
-      <div style={styles.page}>
-        <div style={styles.infoCard}>
-          <div style={{ fontSize: 52, marginBottom: 8, textAlign: "center" }}>
-            🍵
-          </div>
-          <h1 style={{ ...styles.heading, fontSize: 24, marginBottom: 4 }}>
-            Welcome back!
-          </h1>
-          <p
-            style={{
-              color: "#a07850",
-              textAlign: "center",
-              marginBottom: 20,
-              fontSize: 14,
-            }}
-          >
-            Table {tableInfo?.number} · Active Order
-          </p>
-
-          <div style={{ ...styles.infoBox, marginBottom: 16 }}>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>Order</span>
-              <span
-                style={{
-                  ...styles.infoValue,
-                  color: "#d4862a",
-                  fontFamily: "monospace",
-                }}
-              >
-                {existingOrder.orderId}
-              </span>
+      {/* ── Sticky header ── */}
+      <div style={{ position:'sticky', top:0, zIndex:80, background:'rgba(10,8,4,0.97)', backdropFilter:'blur(14px)', borderBottom:`1px solid ${T.border}`, padding:'12px 16px 10px' }}>
+        {/* Top row */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <div>
+            <div style={{ fontFamily:"'Lora',Georgia,serif", fontSize:17, fontWeight:600, color:T.text }}>
+              {settings.cafeName || 'Chiya Chowk'}
             </div>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>Customer</span>
-              <span style={styles.infoValue}>{existingOrder.customerName}</span>
-            </div>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>Status</span>
-              <span
-                style={{
-                  ...styles.infoValue,
-                  textTransform: "capitalize",
-                  color: "#d4862a",
-                }}
-              >
-                {existingOrder.orderStatus}
-              </span>
-            </div>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>Items</span>
-              <span style={styles.infoValue}>
-                {existingOrder.items?.length} item(s)
-              </span>
-            </div>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>Total</span>
-              <span
-                style={{
-                  ...styles.infoValue,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  color: "#d4862a",
-                }}
-              >
-                Rs. {existingOrder.total}
-              </span>
+            <div style={{ fontSize:11, color:T.text3, marginTop:1 }}>
+              Table {tableInfo?.number} · Hi, <strong style={{ color:T.text2 }}>{customerName}</strong>
             </div>
           </div>
-
-          <div style={{ marginBottom: 20 }}>
-            {existingOrder.items?.map((item, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "8px 0",
-                  borderBottom: "1px solid #2a1f14",
-                  fontSize: 13,
-                }}
-              >
-                <span>
-                  {item.emoji} {item.name} × {item.qty}
-                </span>
-                <span style={{ fontFamily: "monospace", color: "#d4862a" }}>
-                  Rs. {item.subtotal || item.price * item.qty}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button
-              style={{
-                ...styles.btnPrimary,
-                width: "100%",
-                fontSize: 15,
-                padding: "13px 0",
-              }}
-              onClick={() => setPhase("tracking")}
-            >
-              📋 Track My Order
-            </button>
-            {["pending", "preparing"].includes(existingOrder.orderStatus) && (
-              <button
-                style={{
-                  ...styles.btnSecondary,
-                  width: "100%",
-                  fontSize: 14,
-                  padding: "11px 0",
-                }}
-                onClick={() => setPhase("menu")}
-              >
-                ➕ Add More Items
+          <div style={{ display:'flex', gap:7, alignItems:'center' }}>
+            {/* Track button — always visible when we have a tracked order */}
+            {trackedId && (
+              <button onClick={() => setPhase('tracking')} style={{ background:T.amberGlow, border:'1px solid rgba(212,134,42,0.3)', borderRadius:8, padding:'5px 10px', color:T.amber, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans',system-ui", whiteSpace:'nowrap' }}>
+                📋 My Order
               </button>
             )}
+            {/* "Adding to order" indicator */}
+            {activeOrder && (
+              <div style={{ background:'rgba(76,175,136,0.12)', border:'1px solid rgba(76,175,136,0.25)', borderRadius:8, padding:'5px 9px', fontSize:10, color:T.green, fontWeight:700, whiteSpace:'nowrap' }}>
+                ➕ Add-on
+              </div>
+            )}
+            <button onClick={() => setPhase('info')} style={{ background:'none', border:'none', cursor:'pointer', fontSize:17, color:T.text3, lineHeight:1 }} title="Edit name">✏️</button>
           </div>
         </div>
-      </div>
-    );
 
-  if (phase === "info")
-    return (
-      <div style={styles.page}>
-        <div style={styles.infoCard}>
-          <div style={{ fontSize: 64, marginBottom: 12, textAlign: "center" }}>
-            🍵
-          </div>
-          <h1 style={{ ...styles.heading, fontSize: 28, marginBottom: 4 }}>
-            {settings.cafeName}
-          </h1>
-          <p
-            style={{
-              color: "#a07850",
-              textAlign: "center",
-              marginBottom: 24,
-              fontSize: 14,
-            }}
-          >
-            Scan & Order · Table {tableInfo?.number}
-          </p>
-
-          <div style={{ ...styles.infoBox, marginBottom: 24 }}>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>📍 Table</span>
-              <span
-                style={{
-                  ...styles.infoValue,
-                  color: "#d4862a",
-                  fontWeight: 700,
-                }}
-              >
-                Table {tableInfo?.number}
-              </span>
-            </div>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>🪑 Seats</span>
-              <span style={styles.infoValue}>{tableInfo?.seats} people</span>
-            </div>
-            <div style={styles.infoRow}>
-              <span style={styles.infoLabel}>📍 Location</span>
-              <span
-                style={{ ...styles.infoValue, textTransform: "capitalize" }}
-              >
-                {tableInfo?.location}
-              </span>
-            </div>
-          </div>
-
-          <p
-            style={{
-              color: "#6b5040",
-              textAlign: "center",
-              fontSize: 13,
-              marginBottom: 24,
-              lineHeight: 1.6,
-            }}
-          >
-            Browse our menu, add items to your cart, and place your order
-            directly. Staff will bring it to your table.
-          </p>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={styles.formLabel}>Your Name *</label>
-            <input
-              style={styles.input}
-              placeholder="Enter your name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <label style={styles.formLabel}>
-              Phone Number <span style={{ color: "#6b5040" }}>(optional)</span>
-            </label>
-            <input
-              style={styles.input}
-              placeholder="9800000000"
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-            />
-          </div>
-
-          <button
-            style={{
-              ...styles.btnPrimary,
-              width: "100%",
-              fontSize: 16,
-              padding: "14px 0",
-            }}
-            onClick={() => {
-              if (!customerName.trim() || customerName.trim().length < 2) {
-                alert("Please enter your name");
-                return;
-              }
-              setPhase("menu");
-            }}
-          >
-            View Menu →
-          </button>
-        </div>
-      </div>
-    );
-
-  // ===== MENU PHASE =====
-  const allFilteredItems = search
-    ? Object.values(menu)
-        .flat()
-        .filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
-    : null;
-
-  return (
-    <div style={{ ...styles.page, paddingBottom: cartCount > 0 ? 90 : 20 }}>
-      {/* Sticky header */}
-      <div style={styles.stickyHeader}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 10,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontFamily: "Georgia, serif",
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#f5e6c8",
-              }}
-            >
-              {settings.cafeName}
-            </div>
-            <div style={{ fontSize: 11, color: "#a07850" }}>
-              Table {tableInfo?.number} · Hi, {customerName}!
-            </div>
-          </div>
-          <button
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 20,
-              color: "#a07850",
-            }}
-            onClick={() => setPhase("info")}
-          >
-            ✏️
-          </button>
-        </div>
-
-        <div style={{ position: "relative", marginBottom: 10 }}>
-          <span
-            style={{
-              position: "absolute",
-              left: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: "#6b5040",
-            }}
-          >
-            🔍
-          </span>
+        {/* Search */}
+        <div style={{ position:'relative', marginBottom:10 }}>
+          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:13, color:T.text4, pointerEvents:'none' }}>🔍</span>
           <input
-            style={{
-              ...styles.input,
-              paddingLeft: 34,
-              marginBottom: 0,
-              fontSize: 13,
-            }}
-            placeholder="Search menu..."
+            style={{ ...S.input, paddingLeft:34, marginBottom:0, fontSize:13, borderRadius:10 }}
+            placeholder="Search menu…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:T.text3, fontSize:15, cursor:'pointer', lineHeight:1 }}>✕</button>
+          )}
         </div>
 
+        {/* Category pills */}
         {!search && (
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              overflowX: "auto",
-              paddingBottom: 2,
-              scrollbarWidth: "none",
-            }}
-          >
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 20,
-                  border: `1px solid ${activeCategory === cat ? "#d4862a" : "#2a1f14"}`,
-                  whiteSpace: "nowrap",
-                  background: activeCategory === cat ? "#d4862a" : "#1a1008",
-                  color: activeCategory === cat ? "#1a0f00" : "#a07850",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
+          <div style={{ display:'flex', gap:6, overflowX:'auto', scrollbarWidth:'none', paddingBottom:2 }}>
+            {categories.map(cat => (
+              <button key={cat} onClick={() => setActiveCategory(cat)} style={{ padding:'6px 14px', borderRadius:20, flexShrink:0, border:`1.5px solid ${activeCategory===cat?T.amber:T.border2}`, background:activeCategory===cat?T.amber:T.card2, color:activeCategory===cat?'#1a0f00':T.text3, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans',system-ui", transition:'all 0.15s', whiteSpace:'nowrap' }}>
                 {cat}
               </button>
             ))}
@@ -792,565 +730,118 @@ const QRMenuPage = () => {
         )}
       </div>
 
-      {/* Menu items */}
-      <div style={{ paddingTop: 4 }}>
+      {/* ── Add-on banner (shown when adding to existing order) ── */}
+      {activeOrder && (
+        <div style={{ margin:'12px 14px 0', background:'rgba(76,175,136,0.06)', border:'1px solid rgba(76,175,136,0.22)', borderRadius:10, padding:'9px 14px', fontSize:12, color:T.green, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span>➕ Adding items to order <strong>{activeOrder.orderId}</strong></span>
+          <button onClick={() => setPhase('tracking')} style={{ background:'none', border:'none', color:T.green, fontSize:11, cursor:'pointer', textDecoration:'underline', fontFamily:"'DM Sans',system-ui" }}>View</button>
+        </div>
+      )}
+
+      {/* ── Menu items ── */}
+      <div style={{ padding:'14px 14px 0' }}>
         {search ? (
           <>
-            <div style={{ fontSize: 12, color: "#6b5040", marginBottom: 12 }}>
-              {allFilteredItems.length} result
-              {allFilteredItems.length !== 1 ? "s" : ""} for "{search}"
+            <div style={{ fontSize:12, color:T.text3, marginBottom:12 }}>
+              {visibleItems.length} result{visibleItems.length !== 1 ? 's' : ''} for "<strong style={{ color:T.text2 }}>{search}</strong>"
             </div>
-            {allFilteredItems.length === 0 ? (
-              <div style={styles.emptyState}>
-                <div style={{ fontSize: 40 }}>🔍</div>
-                <p>No items found</p>
-              </div>
-            ) : (
-              allFilteredItems.map((item) => (
-                <MenuItemCard
-                  key={item._id}
-                  item={item}
-                  qty={cartQty(item._id)}
-                  onAdd={() => addToCart(item)}
-                  onRemove={() => removeFromCart(item._id)}
-                  currency={settings.currency}
-                />
-              ))
-            )}
+            {visibleItems.length === 0
+              ? <div style={{ textAlign:'center', padding:'40px 20px', color:T.text4 }}><div style={{ fontSize:40, marginBottom:10 }}>🔍</div><p>Nothing found</p></div>
+              : visibleItems.map(item => <MenuItemCard key={item._id} item={item} qty={cartQty(item._id)} onAdd={() => addToCart(item)} onRemove={() => removeFromCart(item._id)} />)
+            }
           </>
         ) : (
           <>
-            <h3
-              style={{
-                color: "#d4862a",
-                fontSize: 15,
-                fontWeight: 700,
-                marginBottom: 12,
-                letterSpacing: "0.05em",
-              }}
-            >
-              {activeCategory}
-            </h3>
-            {filteredItems(activeCategory).length === 0 ? (
-              <div style={styles.emptyState}>
-                <p>No items in this category</p>
-              </div>
-            ) : (
-              filteredItems(activeCategory).map((item) => (
-                <MenuItemCard
-                  key={item._id}
-                  item={item}
-                  qty={cartQty(item._id)}
-                  onAdd={() => addToCart(item)}
-                  onRemove={() => removeFromCart(item._id)}
-                  currency={settings.currency}
-                />
-              ))
-            )}
+            <div style={{ fontSize:13, fontWeight:800, color:T.amber, letterSpacing:'0.04em', marginBottom:12 }}>{activeCategory}</div>
+            {visibleItems.length === 0
+              ? <div style={{ textAlign:'center', padding:'40px 20px', color:T.text4 }}>No items in this category</div>
+              : visibleItems.map(item => <MenuItemCard key={item._id} item={item} qty={cartQty(item._id)} onAdd={() => addToCart(item)} onRemove={() => removeFromCart(item._id)} />)
+            }
           </>
         )}
       </div>
 
-      {/* Cart drawer */}
+      {/* ── Cart drawer ── */}
       {showCart && (
-        <div style={styles.cartBackdrop} onClick={() => setShowCart(false)}>
-          <div style={styles.cartDrawer} onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
-              }}
-            >
-              <h3
-                style={{
-                  color: "#f5e6c8",
-                  margin: 0,
-                  fontFamily: "Georgia, serif",
-                }}
-              >
-                🛒 Your Order
-              </h3>
-              <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#a07850",
-                  fontSize: 20,
-                  cursor: "pointer",
-                }}
-                onClick={() => setShowCart(false)}
-              >
-                ✕
-              </button>
+        <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,0.72)', backdropFilter:'blur(5px)', display:'flex', alignItems:'flex-end' }} onClick={() => setShowCart(false)}>
+          <div style={{ width:'100%', maxWidth:480, margin:'0 auto', background:T.card, border:`1px solid ${T.border}`, borderTopLeftRadius:22, borderTopRightRadius:22, padding:'20px 18px', maxHeight:'88vh', overflowY:'auto' }} onClick={e => e.stopPropagation()} className="slide-up">
+
+            {/* Header */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
+              <div>
+                <div style={{ fontFamily:"'Lora',Georgia,serif", fontSize:18, fontWeight:600, color:T.text }}>
+                  {activeOrder ? '➕ Adding Items' : '🛒 Your Order'}
+                </div>
+                <div style={{ fontSize:11, color:T.text3, marginTop:2 }}>
+                  Table {tableInfo?.number}
+                  {activeOrder && <span style={{ color:T.amber, marginLeft:5 }}>· {activeOrder.orderId}</span>}
+                </div>
+              </div>
+              <button onClick={() => setShowCart(false)} style={{ background:T.card2, border:`1px solid ${T.border2}`, borderRadius:8, color:T.text3, fontSize:18, cursor:'pointer', width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
             </div>
 
-            <div
-              style={{ maxHeight: 220, overflowY: "auto", marginBottom: 16 }}
-            >
-              {cart.map((c) => (
-                <div key={c.menuItem} style={styles.cartItem}>
-                  <span style={{ fontSize: 20 }}>{c.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: "#f5e6c8" }}>
-                      {c.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#d4862a",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      Rs. {c.price} each
-                    </div>
+            {/* Items */}
+            <div style={{ maxHeight:240, overflowY:'auto', marginBottom:16 }}>
+              {cart.map(c => (
+                <div key={c.menuItem} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:`1px solid ${T.border}` }}>
+                  <span style={{ fontSize:22 }}>{c.emoji}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, color:T.text, fontWeight:600 }}>{c.name}</div>
+                    <div style={{ fontSize:12, color:T.text3, fontFamily:'DM Mono,monospace' }}>Rs. {c.price} each</div>
                   </div>
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                  >
-                    <button
-                      style={styles.qtyBtn}
-                      onClick={() => removeFromCart(c.menuItem)}
-                    >
-                      −
-                    </button>
-                    <span
-                      style={{
-                        minWidth: 20,
-                        textAlign: "center",
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: "#f5e6c8",
-                      }}
-                    >
-                      {c.qty}
-                    </span>
-                    <button
-                      style={styles.qtyBtn}
-                      onClick={() => addToCart({ _id: c.menuItem, ...c })}
-                    >
-                      +
-                    </button>
+                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                    <button style={qtyBtn} onClick={() => removeFromCart(c.menuItem)}>−</button>
+                    <span style={{ minWidth:22, textAlign:'center', fontWeight:800, color:T.amber, fontSize:15 }}>{c.qty}</span>
+                    <button style={qtyBtn} onClick={() => addToCart({ _id:c.menuItem, ...c })}>+</button>
                   </div>
-                  <span
-                    style={{
-                      fontFamily: "monospace",
-                      color: "#d4862a",
-                      fontSize: 13,
-                      minWidth: 60,
-                      textAlign: "right",
-                    }}
-                  >
-                    Rs. {c.price * c.qty}
-                  </span>
+                  <span style={{ fontFamily:'DM Mono,monospace', color:T.amber, fontWeight:700, fontSize:13, minWidth:58, textAlign:'right' }}>Rs. {c.price * c.qty}</span>
                 </div>
               ))}
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ ...styles.formLabel, fontSize: 12 }}>
-                Special note (optional)
-              </label>
-              <textarea
-                style={{
-                  ...styles.input,
-                  height: 56,
-                  resize: "none",
-                  fontSize: 13,
-                }}
-                placeholder="e.g. Less sugar, extra spicy..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </div>
+            {/* Note — only for new orders (add-items doesn't support per-batch notes) */}
+            {!activeOrder && (
+              <>
+                <label style={{ ...S.label, marginBottom:6 }}>Note <span style={{ color:T.text4, fontWeight:400, textTransform:'none', letterSpacing:0 }}>(optional)</span></label>
+                <textarea style={{ ...S.input, height:60, resize:'none', fontSize:13, marginBottom:16 }} placeholder="e.g. Less sugar, extra hot…" value={note} onChange={e => setNote(e.target.value)} />
+              </>
+            )}
 
-            {/* Totals — no tax row */}
-            <div style={{ ...styles.totalBox, marginBottom: 16 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 12,
-                  color: "#a07850",
-                  marginBottom: 4,
-                }}
-              >
-                <span>Subtotal</span>
-                <span>Rs. {cartTotal}</span>
+            {/* Totals */}
+            <div style={{ background:T.card2, border:`1px solid ${T.border}`, borderRadius:12, padding:'12px 14px', marginBottom:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:T.text3, marginBottom:4 }}>
+                <span>Subtotal</span><span style={{ fontFamily:'DM Mono,monospace' }}>Rs. {cartTotal}</span>
               </div>
               {serviceCharge > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 12,
-                    color: "#a07850",
-                    marginBottom: 4,
-                  }}
-                >
-                  <span>Service Charge</span>
-                  <span>Rs. {serviceCharge}</span>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:T.text3, marginBottom:4 }}>
+                  <span>Service ({serviceRate}%)</span><span style={{ fontFamily:'DM Mono,monospace' }}>Rs. {serviceCharge}</span>
                 </div>
               )}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 17,
-                  fontWeight: 700,
-                  color: "#d4862a",
-                  marginTop: 8,
-                  paddingTop: 8,
-                  borderTop: "1px solid #2a1f14",
-                }}
-              >
-                <span>Total</span>
-                <span>Rs. {grandTotal}</span>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:18, fontWeight:800, color:T.amber, marginTop:8, paddingTop:8, borderTop:`1px solid ${T.border}` }}>
+                <span>Total</span><span style={{ fontFamily:'DM Mono,monospace' }}>Rs. {grandTotal}</span>
               </div>
             </div>
 
-            <button
-              style={{
-                ...styles.btnPrimary,
-                width: "100%",
-                fontSize: 15,
-                padding: "14px 0",
-              }}
-              onClick={handlePlaceOrder}
-              disabled={placing}
-            >
+            <button style={{ ...S.btnA, opacity:placing?0.6:1 }} onClick={handlePlaceOrder} disabled={placing}>
               {placing
-                ? "Placing Order..."
-                : `✓ Place Order · Rs. ${grandTotal}`}
+                ? 'Placing…'
+                : activeOrder
+                  ? `➕ Add to Order · Rs. ${grandTotal}`
+                  : `✓ Place Order · Rs. ${grandTotal}`}
             </button>
           </div>
         </div>
       )}
 
-      {/* Floating cart button */}
+      {/* ── Floating cart button ── */}
       {cartCount > 0 && !showCart && (
-        <button style={styles.floatingCart} onClick={() => setShowCart(true)}>
-          <span>
-            🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
-          </span>
-          <span style={{ fontFamily: "monospace", fontWeight: 700 }}>
-            Rs. {grandTotal}
-          </span>
+        <button onClick={() => setShowCart(true)} style={{ position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)', background:`linear-gradient(135deg,${T.amber},${T.amber2})`, color:'#1a0f00', border:'none', borderRadius:50, padding:'14px 28px', fontWeight:800, fontSize:14, cursor:'pointer', display:'flex', gap:20, alignItems:'center', boxShadow:'0 6px 28px rgba(212,134,42,0.45)', fontFamily:"'DM Sans',system-ui,sans-serif", zIndex:100, whiteSpace:'nowrap', animation:'floatIn 0.3s ease' }}>
+          <span>🛒 {cartCount} item{cartCount !== 1 ? 's' : ''}</span>
+          <span style={{ fontFamily:'DM Mono,monospace' }}>Rs. {grandTotal}</span>
         </button>
       )}
     </div>
   );
 };
-
-// ===== MENU ITEM CARD =====
-const MenuItemCard = ({ item, qty, onAdd, onRemove, currency }) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      padding: "12px 14px",
-      background: qty > 0 ? "rgba(212,134,42,0.07)" : "#0f0b06",
-      border: `1px solid ${qty > 0 ? "rgba(212,134,42,0.3)" : "#1a1008"}`,
-      borderRadius: 12,
-      marginBottom: 8,
-      transition: "all 0.2s",
-    }}
-  >
-    <div style={{ fontSize: 36, flexShrink: 0 }}>{item.emoji}</div>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div
-        style={{
-          fontSize: 14,
-          fontWeight: 600,
-          color: "#f5e6c8",
-          marginBottom: 2,
-        }}
-      >
-        {item.name}
-      </div>
-      {item.description && (
-        <div
-          style={{
-            fontSize: 11,
-            color: "#6b5040",
-            marginBottom: 4,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {item.description}
-        </div>
-      )}
-      <div
-        style={{
-          fontSize: 14,
-          fontWeight: 700,
-          color: "#d4862a",
-          fontFamily: "monospace",
-        }}
-      >
-        {currency} {item.price}
-      </div>
-    </div>
-    <div style={{ flexShrink: 0 }}>
-      {qty === 0 ? (
-        <button style={styles.addBtn} onClick={onAdd}>
-          + Add
-        </button>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button style={styles.qtyBtn} onClick={onRemove}>
-            −
-          </button>
-          <span
-            style={{
-              minWidth: 20,
-              textAlign: "center",
-              fontWeight: 700,
-              color: "#d4862a",
-              fontSize: 15,
-            }}
-          >
-            {qty}
-          </span>
-          <button style={styles.qtyBtn} onClick={onAdd}>
-            +
-          </button>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-// ===== STYLES =====
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#0d0a08",
-    padding: "0 0 20px 0",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    color: "#f5e6c8",
-    maxWidth: 480,
-    margin: "0 auto",
-  },
-  stickyHeader: {
-    position: "sticky",
-    top: 0,
-    zIndex: 50,
-    background: "rgba(13,10,8,0.97)",
-    backdropFilter: "blur(12px)",
-    borderBottom: "1px solid #1a1008",
-    padding: "14px 16px 10px",
-    marginBottom: 16,
-  },
-  fullCenter: {
-    minHeight: "100vh",
-    background: "#0d0a08",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    color: "#f5e6c8",
-  },
-  infoCard: {
-    margin: "40px 20px",
-    background: "#0f0b06",
-    border: "1px solid #2a1f14",
-    borderRadius: 18,
-    padding: 28,
-  },
-  trackerCard: {
-    margin: "24px 16px",
-    background: "#0f0b06",
-    border: "1px solid #2a1f14",
-    borderRadius: 18,
-    padding: 24,
-  },
-  heading: {
-    fontFamily: 'Georgia, "Playfair Display", serif',
-    color: "#f5e6c8",
-    textAlign: "center",
-    fontWeight: 700,
-    letterSpacing: "0.02em",
-  },
-  infoBox: {
-    background: "#0d0a08",
-    border: "1px solid #2a1f14",
-    borderRadius: 10,
-    padding: 14,
-  },
-  infoRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "5px 0",
-    borderBottom: "1px solid #1a1008",
-    fontSize: 13,
-  },
-  infoLabel: { color: "#6b5040" },
-  infoValue: { color: "#c9a96e", fontWeight: 600 },
-  input: {
-    width: "100%",
-    boxSizing: "border-box",
-    background: "#0d0a08",
-    border: "1px solid #2a1f14",
-    borderRadius: 10,
-    color: "#f5e6c8",
-    padding: "12px 14px",
-    fontSize: 15,
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    outline: "none",
-    marginBottom: 12,
-    transition: "border-color 0.2s",
-  },
-  formLabel: {
-    display: "block",
-    fontSize: 13,
-    color: "#a07850",
-    marginBottom: 6,
-    fontWeight: 600,
-  },
-  btnPrimary: {
-    background: "linear-gradient(135deg, #d4862a, #b8721f)",
-    color: "#1a0f00",
-    border: "none",
-    borderRadius: 12,
-    padding: "13px 24px",
-    fontWeight: 700,
-    fontSize: 14,
-    cursor: "pointer",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    letterSpacing: "0.03em",
-    transition: "opacity 0.2s",
-  },
-  btnSecondary: {
-    background: "#1a1008",
-    color: "#a07850",
-    border: "1px solid #2a1f14",
-    borderRadius: 12,
-    padding: "11px 20px",
-    fontWeight: 600,
-    fontSize: 14,
-    cursor: "pointer",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-  },
-  addBtn: {
-    background: "rgba(212,134,42,0.15)",
-    color: "#d4862a",
-    border: "1px solid rgba(212,134,42,0.3)",
-    borderRadius: 8,
-    padding: "7px 14px",
-    fontWeight: 700,
-    fontSize: 13,
-    cursor: "pointer",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    whiteSpace: "nowrap",
-  },
-  qtyBtn: {
-    width: 30,
-    height: 30,
-    background: "#1a1008",
-    color: "#d4862a",
-    border: "1px solid #2a1f14",
-    borderRadius: 8,
-    fontSize: 16,
-    fontWeight: 700,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-  },
-  floatingCart: {
-    position: "fixed",
-    bottom: 20,
-    left: "50%",
-    transform: "translateX(-50%)",
-    background: "linear-gradient(135deg, #d4862a, #b8721f)",
-    color: "#1a0f00",
-    border: "none",
-    borderRadius: 50,
-    padding: "14px 28px",
-    fontWeight: 700,
-    fontSize: 14,
-    cursor: "pointer",
-    display: "flex",
-    gap: 16,
-    alignItems: "center",
-    boxShadow: "0 4px 24px rgba(212,134,42,0.4)",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    zIndex: 100,
-    whiteSpace: "nowrap",
-  },
-  cartBackdrop: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 200,
-    background: "rgba(0,0,0,0.7)",
-    backdropFilter: "blur(4px)",
-    display: "flex",
-    alignItems: "flex-end",
-  },
-  cartDrawer: {
-    width: "100%",
-    maxWidth: 480,
-    margin: "0 auto",
-    background: "#0f0b06",
-    border: "1px solid #2a1f14",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: "85vh",
-    overflowY: "auto",
-  },
-  cartItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "10px 0",
-    borderBottom: "1px solid #1a1008",
-  },
-  totalBox: {
-    background: "#0d0a08",
-    border: "1px solid #2a1f14",
-    borderRadius: 10,
-    padding: 14,
-  },
-  orderItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "8px 0",
-    borderBottom: "1px solid #1a1008",
-    fontSize: 13,
-  },
-  emptyState: { textAlign: "center", padding: "40px 20px", color: "#6b5040" },
-  spinner: {
-    width: 32,
-    height: 32,
-    border: "3px solid #1a1008",
-    borderTop: "3px solid #d4862a",
-    borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
-  },
-};
-
-if (typeof document !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = `
-    @keyframes spin { to { transform: rotate(360deg); } }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { margin: 0; background: #0d0a08; }
-    input:focus, textarea:focus { border-color: #d4862a !important; outline: none; }
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: #0d0a08; }
-    ::-webkit-scrollbar-thumb { background: #2a1f14; border-radius: 4px; }
-  `;
-  document.head.appendChild(style);
-}
 
 export default QRMenuPage;

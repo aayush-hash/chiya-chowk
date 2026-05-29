@@ -53,26 +53,28 @@ exports.scanQR = async (req, res, next) => {
   try {
     const table = await Table.findOne({ qrToken: req.params.token, isActive: true }).lean();
     if (!table) return next(new AppError('Invalid QR code. Please ask staff for help.', 404));
-
+ 
     const menuItems = await MenuItem.find({ isAvailable: true, isDeleted: false })
       .select('name emoji category price description preparationTime tags')
       .sort({ category: 1, name: 1 })
       .lean();
-
+ 
     const categories = [...new Set(menuItems.map(m => m.category))];
     const menu = {};
     categories.forEach(cat => {
       menu[cat] = menuItems.filter(m => m.category === cat);
     });
-
+ 
     const settings = await Settings.findOne().lean();
-
+ 
+    // Only treat as "existing order" when the order is still active (in kitchen)
+    // AND unpaid. Once paid OR completed → table is free for a new customer.
     const existingOrder = await Order.findOne({
       table: table._id,
       paymentStatus: 'unpaid',
-      orderStatus: { $nin: ['completed', 'cancelled'] },
+      orderStatus: { $in: ['pending', 'preparing', 'ready', 'served'] },
     }).sort({ createdAt: -1 }).lean();
-
+ 
     res.json({
       success: true,
       table: {
