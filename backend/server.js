@@ -145,6 +145,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/qr', qrRoutes);
 
+app.get('/', (req, res) => {
+  res.json({ message: "Chiya Chowk API Running" });
+});
+
 
 
 // TEMPORARY SEED ROUTE - REMOVE AFTER USE
