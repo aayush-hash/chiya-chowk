@@ -2,7 +2,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-  baseURL: 'https://chiya-chowk.onrender.com/api',
+  baseURL: VITE_API_URL,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
