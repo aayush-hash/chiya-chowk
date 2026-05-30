@@ -53,3 +53,5 @@
 {"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-29 11:49:48"}
 {"level":"info","message":"Order created: ORD-1050 by admin","service":"chiya-chowk-api","timestamp":"2026-05-29 12:01:57"}
 {"level":"info","message":"Order paid: ORD-1050 by admin","service":"chiya-chowk-api","timestamp":"2026-05-29 12:02:13"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-29 12:53:57"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-29 12:53:57"}
