@@ -55,3 +55,57 @@
 {"level":"info","message":"Order paid: ORD-1050 by admin","service":"chiya-chowk-api","timestamp":"2026-05-29 12:02:13"}
 {"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-29 12:53:57"}
 {"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-29 12:53:57"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-30 10:34:28"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-30 10:34:28"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-30 13:06:43"}
+{"level":"info","message":"Order created: ORD-1051 by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 13:40:10"}
+{"level":"info","message":"Order paid: ORD-1051 by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 13:40:21"}
+{"level":"info","message":"Order created: ORD-1052 by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 13:41:15"}
+{"level":"info","message":"Order paid: ORD-1052 by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 13:41:36"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 13:43:02"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-30 14:00:04"}
+{"level":"info","message":"Inventory deleted: Cardamom by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:00:35"}
+{"level":"info","message":"Inventory deleted: Chicken by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:00:51"}
+{"level":"info","message":"Inventory deleted: Yogurt (Dahi) by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:00:58"}
+{"level":"info","message":"Inventory deleted: Tea Leaves (CTC) by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:01:02"}
+{"level":"info","message":"Inventory deleted: Rice by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:01:06"}
+{"level":"info","message":"Inventory deleted: Hookah Flavour (Molasses) by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:01:10"}
+{"level":"info","message":"Inventory deleted: Chowmein Noodles by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:01:12"}
+{"level":"info","message":"Inventory deleted: Coconut Milk (canned) by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:01:15"}
+{"level":"info","message":"Inventory deleted: Coffee Beans by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:01:16"}
+{"level":"info","message":"Inventory deleted: Eggs by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:01:26"}
+{"level":"error","message":"409 - \"Eggs\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:02:07"}
+{"level":"info","message":"Inventory created: egg by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:03:01"}
+{"level":"info","message":"Table 8 status set to dirty by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:03:45"}
+{"level":"info","message":"Table 8 status set to available by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:04:00"}
+{"level":"info","message":"Order created: ORD-1053 by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:04:09"}
+{"level":"info","message":"Inventory deleted: Cooking Oil by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:37"}
+{"level":"info","message":"Inventory deleted: Disposable Cups by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:40"}
+{"level":"info","message":"Inventory deleted: Ginger by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:42"}
+{"level":"info","message":"Inventory deleted: Hookah Coal by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:43"}
+{"level":"info","message":"Inventory deleted: Maida (All-purpose Flour) by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:44"}
+{"level":"info","message":"Inventory deleted: Milk by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:47"}
+{"level":"info","message":"Inventory deleted: Mineral Water Bottles by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:52"}
+{"level":"info","message":"Inventory deleted: egg by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:55"}
+{"level":"info","message":"Inventory deleted: Sugar by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:05:58"}
+{"level":"info","message":"Inventory deleted: Mixed Vegetables by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:06:00"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:09:18"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:09:54"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-05-30 14:11:11"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-30 14:11:16"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:11:16"}
+{"level":"warn","message":"MongoDB disconnected. Attempting reconnect...","service":"chiya-chowk-api","timestamp":"2026-05-30 14:23:18"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-30 14:23:25"}
+{"level":"error","message":"MongoDB connection failed: querySrv ECONNREFUSED _mongodb._tcp.chiya-chowk.udzyryv.mongodb.net","service":"chiya-chowk-api","timestamp":"2026-05-30 14:23:25"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-30 14:24:25"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:24:25"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:28:40"}
+{"level":"error","message":"500 - E11000 duplicate key error collection: chiya-chowk.users index: username_1 dup key: { username: \"admin\" } - /api/users - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:01"}
+{"level":"info","message":"User created: abc (staff) by admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:10"}
+{"level":"info","message":"User logged out: admin","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:13"}
+{"level":"error","message":"401 - Invalid credentials. 4 attempts remaining. - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:32"}
+{"level":"error","message":"401 - Invalid credentials. 3 attempts remaining. - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:48"}
+{"level":"info","message":"User logged in: abc (staff)","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:57"}
+{"level":"info","message":"🍵 Chiya Chowk API running on port 5000 [development]","service":"chiya-chowk-api","timestamp":"2026-05-30 14:51:18"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:51:18"}
+{"level":"info","message":"User logged in: admin (admin)","service":"chiya-chowk-api","timestamp":"2026-05-30 14:51:25"}

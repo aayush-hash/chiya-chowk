@@ -1,3 +1,12 @@
 {"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED 127.0.0.1:27017","service":"chiya-chowk-api","timestamp":"2026-05-28 17:45:17"}
 {"level":"error","message":"400 - Cannot clear table with unpaid order. Mark order as paid first. - /api/tables/6a003d89e32c1dcd5c765f42/clear - PATCH - ::1","service":"chiya-chowk-api","timestamp":"2026-05-28 18:01:15"}
 {"level":"error","message":"400 - Cannot clear table with unpaid order. Mark order as paid first. - /api/tables/6a00461fee777d01fff00fd5/clear - PATCH - ::1","service":"chiya-chowk-api","timestamp":"2026-05-28 18:01:39"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 13:43:02"}
+{"level":"error","message":"409 - \"Eggs\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:02:07"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:09:18"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:09:54"}
+{"level":"error","message":"MongoDB connection failed: querySrv ECONNREFUSED _mongodb._tcp.chiya-chowk.udzyryv.mongodb.net","service":"chiya-chowk-api","timestamp":"2026-05-30 14:23:25"}
+{"level":"error","message":"409 - \"sugar\" already exists in inventory - /api/inventory - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:28:40"}
+{"level":"error","message":"500 - E11000 duplicate key error collection: chiya-chowk.users index: username_1 dup key: { username: \"admin\" } - /api/users - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:01"}
+{"level":"error","message":"401 - Invalid credentials. 4 attempts remaining. - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:32"}
+{"level":"error","message":"401 - Invalid credentials. 3 attempts remaining. - /api/auth/login - POST - ::1","service":"chiya-chowk-api","timestamp":"2026-05-30 14:45:48"}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Inline API calls (works with existing axios setup in api.js)
+// ── API helpers ───────────────────────────────────────────────────────────────
 const token = () => localStorage.getItem('token');
 const authHeaders = () => ({ headers: { Authorization: `Bearer ${token()}` } });
 
@@ -17,15 +17,18 @@ const invAPI = {
   adjust: (id, d) => axios.patch(`/api/inventory/${id}/adjust`, d, authHeaders()),
   delete: (id) => axios.delete(`/api/inventory/${id}`, authHeaders()),
   getMenuItems: () => axios.get('/api/inventory/menu-items', authHeaders()),
+  // ── NEW ──────────────────────────────────────────────────────────────────
+  submitStockTake: (d) => axios.post('/api/inventory/stock-take', d, authHeaders()),
+  getStockTakeHistory: (p) => axios.get('/api/inventory/stock-take/history', { params: p, ...authHeaders() }),
 };
 
-// ===== SUB-COMPONENTS =====
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-const StockBadge = ({ status, stock, unit }) => {
+const StockBadge = ({ status }) => {
   const styles = {
     out: { bg: 'rgba(224,92,92,0.15)', border: 'rgba(224,92,92,0.4)', color: '#e05c5c', label: '⛔ Out of Stock' },
     low: { bg: 'rgba(212,134,42,0.15)', border: 'rgba(212,134,42,0.4)', color: '#d4862a', label: '⚠️ Low Stock' },
-    ok: { bg: 'rgba(76,175,136,0.15)', border: 'rgba(76,175,136,0.35)', color: '#4caf88', label: '✅ In Stock' },
+    ok:  { bg: 'rgba(76,175,136,0.15)', border: 'rgba(76,175,136,0.35)', color: '#4caf88', label: '✅ In Stock' },
   };
   const s = styles[status] || styles.ok;
   return (
@@ -35,6 +38,19 @@ const StockBadge = ({ status, stock, unit }) => {
   );
 };
 
+// ── Variance badge ────────────────────────────────────────────────────────────
+const VarianceBadge = ({ pct }) => {
+  if (pct === null || pct === undefined) return <span style={{ color: 'var(--text3)', fontSize: 11 }}>No data</span>;
+  const color = pct >= -5 ? '#4caf88' : pct >= -15 ? '#d4862a' : '#e05c5c';
+  const label = pct >= -5 ? '✅ Normal' : pct >= -15 ? '⚠️ Watch' : '🚨 Critical';
+  return (
+    <span style={{ color, fontFamily: 'DM Mono', fontSize: 12, fontWeight: 700 }}>
+      {pct > 0 ? '+' : ''}{pct}% {label}
+    </span>
+  );
+};
+
+// ── Restock Modal ─────────────────────────────────────────────────────────────
 const RestockModal = ({ item, onClose, onSuccess }) => {
   const [qty, setQty] = useState('');
   const [cost, setCost] = useState(item.costPerUnit || '');
@@ -104,9 +120,10 @@ const RestockModal = ({ item, onClose, onSuccess }) => {
   );
 };
 
+// ── Add Item Modal ────────────────────────────────────────────────────────────
 const AddItemModal = ({ onClose, onSuccess, menuItems }) => {
-  const UNITS = ['kg', 'g', 'liters', 'ml', 'pieces', 'packets', 'boxes', 'bottles'];
-  const CATS = ['Dairy', 'Tea & Coffee', 'Spices', 'Flour & Grains', 'Vegetables', 'Beverages', 'Packaging', 'Other'];
+  const UNITS = ['kg', 'g', 'liters', 'ml', 'pieces', 'packets', 'packs', 'boxes', 'bottles', 'cans'];
+  const CATS = ['Dairy', 'Tea & Coffee', 'Spices', 'Flour & Grains', 'Vegetables', 'Meat', 'Beverages', 'Packaging', 'Hookah', 'Other'];
   const [form, setForm] = useState({ name: '', category: 'Other', unit: 'kg', currentStock: '', lowStockThreshold: '', costPerUnit: '', supplier: '', notes: '' });
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -172,11 +189,9 @@ const AddItemModal = ({ onClose, onSuccess, menuItems }) => {
                 <input className="form-control" value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} placeholder="Supplier name" />
               </div>
             </div>
-
-            {/* Menu item links */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label className="form-label" style={{ marginBottom: 0 }}>🔗 Link to Menu Items (for auto stock deduction)</label>
+                <label className="form-label" style={{ marginBottom: 0 }}>🔗 Link to Menu Items (auto stock deduction)</label>
                 <button type="button" className="btn btn-xs btn-secondary" onClick={addLink}>+ Add Link</button>
               </div>
               {links.map((link, i) => (
@@ -193,7 +208,6 @@ const AddItemModal = ({ onClose, onSuccess, menuItems }) => {
                 <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No links added. Stock won't auto-deduct on orders.</div>
               )}
             </div>
-
             <div className="modal-footer" style={{ padding: 0, border: 'none' }}>
               <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Adding...' : '+ Add Item'}</button>
@@ -205,6 +219,7 @@ const AddItemModal = ({ onClose, onSuccess, menuItems }) => {
   );
 };
 
+// ── Detail Modal ──────────────────────────────────────────────────────────────
 const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
   const [item, setItem] = useState(initItem);
   const [tab, setTab] = useState('overview');
@@ -216,7 +231,7 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
     if (adjustQty === '' || parseFloat(adjustQty) < 0) { toast.error('Enter valid quantity'); return; }
     setAdjusting(true);
     try {
-      const { data } = await invAPI.adjust(item._id, { newStock: parseFloat(adjustQty), reason: adjustReason });
+      await invAPI.adjust(item._id, { newStock: parseFloat(adjustQty), reason: adjustReason });
       toast.success('Stock adjusted');
       setItem(prev => ({ ...prev, currentStock: parseFloat(adjustQty) }));
       onSuccess();
@@ -239,8 +254,8 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
           <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
         </div>
         <div style={{ padding: '0 24px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 }}>
-          {['overview', 'history', 'links'].map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: tab === t ? '2px solid var(--amber)' : '2px solid transparent', color: tab === t ? 'var(--amber)' : 'var(--text3)', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600, textTransform: 'capitalize', marginBottom: -1 }}>
+          {['overview', 'history', 'links', 'stock takes'].map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: tab === t ? '2px solid var(--amber)' : '2px solid transparent', color: tab === t ? 'var(--amber)' : 'var(--text3)', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600, textTransform: 'capitalize', marginBottom: -1, whiteSpace: 'nowrap' }}>
               {t}
             </button>
           ))}
@@ -248,7 +263,6 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
         <div className="modal-body">
           {tab === 'overview' && (
             <>
-              {/* Stock gauge */}
               <div style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>Current Stock</span>
@@ -262,8 +276,6 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text3)' }}>Low stock alert at {item.lowStockThreshold} {item.unit}</div>
               </div>
-
-              {/* Stats grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
                 {[
                   { label: 'Used Today', val: `${item.totalUsedToday || 0} ${item.unit}`, color: 'var(--red)' },
@@ -276,11 +288,8 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
                   </div>
                 ))}
               </div>
-
               {item.supplier && <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>Supplier: <span style={{ color: 'var(--text2)' }}>{item.supplier}</span></div>}
               {item.notes && <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>Notes: <span style={{ color: 'var(--text2)' }}>{item.notes}</span></div>}
-
-              {/* Manual adjust */}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text2)' }}>🔧 Manual Stock Correction</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}>
@@ -310,7 +319,6 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
                   </div>
                 </div>
               ))}
-
               <div style={{ fontSize: 13, fontWeight: 600, margin: '16px 0 10px' }}>📤 Recent Usage</div>
               {(item.usageLog || []).length === 0 ? (
                 <div className="empty-state"><p>No usage recorded yet</p></div>
@@ -334,7 +342,7 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
                 Stock is automatically deducted from this ingredient when these menu items are ordered.
               </div>
               {(item.usedInMenuItems || []).length === 0 ? (
-                <div className="empty-state"><div className="icon" style={{ fontSize: 32 }}>🔗</div><p>No menu items linked</p><p style={{ fontSize: 11, marginTop: 4 }}>Edit this item to add links</p></div>
+                <div className="empty-state"><div className="icon" style={{ fontSize: 32 }}>🔗</div><p>No menu items linked</p></div>
               ) : (item.usedInMenuItems || []).map((link, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px', background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 8 }}>
                   <div style={{ flex: 1 }}>
@@ -348,13 +356,250 @@ const DetailModal = ({ item: initItem, onClose, onSuccess, menuItems }) => {
               ))}
             </div>
           )}
+
+          {/* ── NEW: Stock Take history tab ─────────────────────────────── */}
+          {tab === 'stock takes' && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>📋 Stock Take History</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+                Each row = one physical count. Variance = actual − system expected.
+              </div>
+              {(item.stockTakeHistory || []).length === 0 ? (
+                <div className="empty-state">
+                  <div className="icon" style={{ fontSize: 32 }}>📋</div>
+                  <p>No stock takes recorded yet</p>
+                  <p style={{ fontSize: 11 }}>Use the Stock Take tab to record physical counts</p>
+                </div>
+              ) : [...(item.stockTakeHistory || [])].reverse().map((t, i) => {
+                const isNeg = t.variance < 0;
+                const isPos = t.variance > 0;
+                return (
+                  <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, marginBottom: 8, background: 'var(--card2)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--text3)' }}>{t.date}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>by {t.recordedByName}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 12 }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'var(--text3)', fontSize: 10, marginBottom: 2 }}>SYSTEM EXPECTED</div>
+                        <div style={{ fontFamily: 'DM Mono', fontWeight: 700 }}>{t.theoreticalStock} {item.unit}</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'var(--text3)', fontSize: 10, marginBottom: 2 }}>PHYSICALLY COUNTED</div>
+                        <div style={{ fontFamily: 'DM Mono', fontWeight: 700, color: 'var(--amber)' }}>{t.actualCount} {item.unit}</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'var(--text3)', fontSize: 10, marginBottom: 2 }}>VARIANCE</div>
+                        <div style={{ fontFamily: 'DM Mono', fontWeight: 700, color: isNeg ? 'var(--red)' : isPos ? 'var(--green)' : 'var(--text3)' }}>
+                          {isPos ? '+' : ''}{t.variance} {item.unit}
+                          <span style={{ fontSize: 10, marginLeft: 4 }}>({t.variancePct > 0 ? '+' : ''}{t.variancePct}%)</span>
+                        </div>
+                      </div>
+                    </div>
+                    {t.note && <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>"{t.note}"</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {/* ──────────────────────────────────────────────────────────────── */}
         </div>
       </div>
     </div>
   );
 };
 
-// ===== MAIN PAGE =====
+// ── NEW: Stock Take Modal ─────────────────────────────────────────────────────
+// Staff enters actual physical counts for all items. System shows
+// theoretical vs actual and variance automatically.
+const StockTakeModal = ({ items, onClose, onSuccess }) => {
+  // Build initial state: all items with empty actualCount
+  const [counts, setCounts] = useState(() =>
+    items.map(item => ({
+      inventoryId: item._id,
+      name: item.name,
+      unit: item.unit,
+      theoreticalStock: item.currentStock,
+      actualCount: '',
+      itemNote: '',
+      category: item.category,
+    }))
+  );
+  const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterCat, setFilterCat] = useState('All');
+
+  const updateCount = (id, field, val) =>
+    setCounts(prev => prev.map(c => c.inventoryId === id ? { ...c, [field]: val } : c));
+
+  const filledCount = counts.filter(c => c.actualCount !== '').length;
+
+  const categories = ['All', ...new Set(items.map(i => i.category))];
+
+  const filtered = counts.filter(c => {
+    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase());
+    const matchCat = filterCat === 'All' || c.category === filterCat;
+    return matchSearch && matchCat;
+  });
+
+  const handleSubmit = async () => {
+    const filled = counts.filter(c => c.actualCount !== '');
+    if (filled.length === 0) { toast.error('Count at least one item'); return; }
+    setLoading(true);
+    try {
+      const payload = {
+        note,
+        items: filled.map(c => ({
+          inventoryId: c.inventoryId,
+          actualCount: parseFloat(c.actualCount),
+          itemNote: c.itemNote,
+        })),
+      };
+      const { data } = await invAPI.submitStockTake(payload);
+      const { summary } = data;
+      toast.success(`✅ Stock take done — ${summary.totalItems} items, ${summary.shrinkageItems} with shrinkage`);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Stock take failed');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 680, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ flexShrink: 0 }}>
+          <div>
+            <h3 className="modal-title">📋 End-of-Day Stock Take</h3>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+              Physically count each item and enter the actual quantity. System will calculate variance automatically.
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Explainer banner */}
+        <div style={{ margin: '0 24px 0', padding: '10px 14px', background: 'rgba(91,155,213,0.08)', border: '1px solid rgba(91,155,213,0.25)', borderRadius: 8, fontSize: 12, color: 'var(--text3)', flexShrink: 0 }}>
+          <strong style={{ color: 'var(--blue, #5b9bd5)' }}>How this works:</strong> The system tracks stock automatically via orders (theoretical). You physically count what's actually on the shelf. If there's a gap, that's your wastage/shrinkage. Submitting updates stock to the real number.
+        </div>
+
+        {/* Filters */}
+        <div style={{ padding: '12px 24px 0', display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="🔍 Search..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ maxWidth: 180 }}
+          />
+          {categories.map(cat => (
+            <button
+              key={cat}
+              className={`filter-chip ${filterCat === cat ? 'active' : ''}`}
+              onClick={() => setFilterCat(cat)}
+            >{cat}</button>
+          ))}
+        </div>
+
+        {/* Progress */}
+        <div style={{ padding: '10px 24px 0', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text3)', marginBottom: 5 }}>
+            <span>{filledCount} / {counts.length} items counted</span>
+            <span>{Math.round((filledCount / counts.length) * 100)}%</span>
+          </div>
+          <div style={{ height: 4, background: 'var(--border2)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(filledCount / counts.length) * 100}%`, background: 'var(--amber)', borderRadius: 2, transition: 'width 0.3s ease' }} />
+          </div>
+        </div>
+
+        {/* Items list */}
+        <div className="modal-body" style={{ flex: 1, overflow: 'auto', paddingTop: 12 }}>
+          {filtered.map(c => {
+            const actual = c.actualCount !== '' ? parseFloat(c.actualCount) : null;
+            const variance = actual !== null ? actual - c.theoreticalStock : null;
+            const variancePct = variance !== null && c.theoreticalStock > 0
+              ? ((variance / c.theoreticalStock) * 100).toFixed(1)
+              : null;
+            const varColor = variance === null ? 'var(--text3)' : variance < 0 ? 'var(--red)' : variance > 0 ? 'var(--green)' : 'var(--text3)';
+
+            return (
+              <div key={c.inventoryId} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, marginBottom: 8, background: actual !== null ? 'var(--card2)' : 'var(--card)', transition: 'background 0.2s' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{c.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                      System expects: <span style={{ fontFamily: 'DM Mono', color: 'var(--text2)', fontWeight: 700 }}>{c.theoreticalStock} {c.unit}</span>
+                    </div>
+                  </div>
+                  {/* Variance display */}
+                  {variance !== null && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: 'DM Mono', fontWeight: 700, color: varColor, fontSize: 13 }}>
+                        {variance > 0 ? '+' : ''}{variance.toFixed(3)} {c.unit}
+                      </div>
+                      {variancePct && (
+                        <div style={{ fontSize: 10, color: varColor }}>
+                          {variancePct > 0 ? '+' : ''}{variancePct}%
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: 11 }}>Actual count ({c.unit}) *</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={c.actualCount}
+                      onChange={e => updateCount(c.inventoryId, 'actualCount', e.target.value)}
+                      placeholder={`Count in ${c.unit}`}
+                      min="0"
+                      step="0.001"
+                      style={{ borderColor: actual !== null && variance < 0 ? 'var(--red)' : actual !== null ? 'var(--green)' : undefined }}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: 11 }}>Note (optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={c.itemNote}
+                      onChange={e => updateCount(c.inventoryId, 'itemNote', e.target.value)}
+                      placeholder="e.g. Spilled, expired..."
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 24px 20px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label">Overall Note (optional)</label>
+            <input type="text" className="form-control" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. End of Saturday shift" />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>{filledCount} items will be submitted</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || filledCount === 0}>
+                {loading ? 'Submitting...' : `✅ Submit Stock Take (${filledCount})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 const InventoryPage = () => {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({});
@@ -362,12 +607,14 @@ const InventoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('stock'); // stock | today | report
+  const [activeTab, setActiveTab] = useState('stock');
   const [showAdd, setShowAdd] = useState(false);
   const [restockItem, setRestockItem] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [reportData, setReportData] = useState(null);
+  const [showStockTake, setShowStockTake] = useState(false); // ← NEW
+  const [stockTakeHistory, setStockTakeHistory] = useState(null); // ← NEW
   const [reportDates, setReportDates] = useState({
     start: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
     end: new Date().toISOString().slice(0, 10),
@@ -399,6 +646,9 @@ const InventoryPage = () => {
     try {
       const { data } = await invAPI.getReport({ startDate: reportDates.start, endDate: reportDates.end });
       setReportData(data);
+      // Also fetch stock take history for same period
+      const { data: takeData } = await invAPI.getStockTakeHistory({ startDate: reportDates.start, endDate: reportDates.end });
+      setStockTakeHistory(takeData.history || []);
     } catch (err) {
       toast.error('Failed to load report');
     }
@@ -427,6 +677,9 @@ const InventoryPage = () => {
     return 'ok';
   };
 
+  const today = new Date().toISOString().slice(0, 10);
+  const stockTakePending = todayData?.summary?.stockTakePending || 0;
+
   return (
     <div className="animate-fadeIn">
       {/* Header */}
@@ -434,6 +687,15 @@ const InventoryPage = () => {
         <h2 className="page-title">📦 Inventory Management</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={fetchAll}>↻ Refresh</button>
+          {/* ── NEW: Stock Take button with pending badge ── */}
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowStockTake(true)} style={{ position: 'relative' }}>
+            📋 Stock Take
+            {stockTakePending > 0 && (
+              <span style={{ position: 'absolute', top: -6, right: -6, background: 'var(--amber)', color: '#1a0f00', borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {stockTakePending > 9 ? '9+' : stockTakePending}
+              </span>
+            )}
+          </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Add Item</button>
         </div>
       </div>
@@ -455,9 +717,9 @@ const InventoryPage = () => {
         ))}
       </div>
 
-      {/* Low stock / out of stock alert banner */}
+      {/* Alert banners */}
       {(summary.lowStock > 0 || summary.outOfStock > 0) && (
-        <div style={{ background: 'rgba(224,92,92,0.08)', border: '1px solid rgba(224,92,92,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ background: 'rgba(224,92,92,0.08)', border: '1px solid rgba(224,92,92,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 20 }}>🚨</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--red)' }}>Stock Alert</div>
@@ -470,16 +732,36 @@ const InventoryPage = () => {
         </div>
       )}
 
+      {/* ── NEW: Stock take reminder banner ─────────────────────────────── */}
+      {stockTakePending > 0 && (
+        <div style={{ background: 'rgba(91,155,213,0.08)', border: '1px solid rgba(91,155,213,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>📋</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--blue, #5b9bd5)' }}>Stock Take Pending</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+              {stockTakePending} items haven't been physically counted today. Do a stock take at end of shift to verify actual stock vs system stock.
+            </div>
+          </div>
+          <button className="btn btn-xs btn-secondary" onClick={() => setShowStockTake(true)}>Start Stock Take</button>
+        </div>
+      )}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--card2)', borderRadius: 10, padding: 4, width: 'fit-content', border: '1px solid var(--border)' }}>
-        {[{ key: 'stock', label: '📋 Stock List' }, { key: 'today', label: '📅 Today\'s Usage' }, { key: 'report', label: '📊 Report' }].map(t => (
-          <button key={t.key} onClick={() => { setActiveTab(t.key); if (t.key === 'report') fetchReport(); }} style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: activeTab === t.key ? 'var(--amber)' : 'transparent', color: activeTab === t.key ? '#1a0f00' : 'var(--text3)', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600, transition: 'all 0.15s' }}>
+        {[
+          { key: 'stock', label: '📋 Stock List' },
+          { key: 'today', label: "📅 Today's Usage" },
+          { key: 'report', label: '📊 Report' },
+        ].map(t => (
+          <button key={t.key} onClick={() => { setActiveTab(t.key); if (t.key === 'report') fetchReport(); }}
+            style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: activeTab === t.key ? 'var(--amber)' : 'transparent', color: activeTab === t.key ? '#1a0f00' : 'var(--text3)', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600, transition: 'all 0.15s' }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* ===== STOCK LIST TAB ===== */}
+      {/* ── STOCK LIST TAB ─────────────────────────────────────────────────── */}
       {activeTab === 'stock' && (
         <>
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -505,15 +787,19 @@ const InventoryPage = () => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Ingredient</th><th>Category</th><th>Current Stock</th>
-                    <th>Used Today</th><th>Low Alert</th><th>Status</th>
-                    <th>Stock Value</th><th>Actions</th>
+                    <th>Ingredient</th>
+                    <th>Category</th>
+                    <th>Current Stock</th>
+                    <th>Used Today</th>
+                    <th>Low Alert</th>
+                    <th>Status</th>
+                    <th>Stock Value</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map(item => {
                     const status = stockStatusLabel(item);
-                    const today = new Date().toISOString().slice(0, 10);
                     const usedToday = item.usageResetDate === today ? item.totalUsedToday : 0;
                     return (
                       <tr key={item._id} style={{ cursor: 'pointer' }}>
@@ -523,11 +809,8 @@ const InventoryPage = () => {
                         </td>
                         <td style={{ fontSize: 12, color: 'var(--text3)' }}>{item.category}</td>
                         <td>
-                          <span style={{ fontFamily: 'DM Mono', fontWeight: 700, color: stockColor(item), fontSize: 14 }}>
-                            {item.currentStock}
-                          </span>
+                          <span style={{ fontFamily: 'DM Mono', fontWeight: 700, color: stockColor(item), fontSize: 14 }}>{item.currentStock}</span>
                           <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>{item.unit}</span>
-                          {/* Mini progress bar */}
                           <div style={{ height: 3, background: 'var(--border2)', borderRadius: 2, marginTop: 4, width: 80 }}>
                             <div style={{ height: '100%', width: `${Math.min(100, (item.currentStock / Math.max(item.lowStockThreshold * 3, 1)) * 100)}%`, background: stockColor(item), borderRadius: 2 }} />
                           </div>
@@ -559,7 +842,7 @@ const InventoryPage = () => {
         </>
       )}
 
-      {/* ===== TODAY'S USAGE TAB ===== */}
+      {/* ── TODAY'S USAGE TAB ──────────────────────────────────────────────── */}
       {activeTab === 'today' && todayData && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
@@ -577,7 +860,6 @@ const InventoryPage = () => {
             ))}
           </div>
 
-          {/* Alerts */}
           {(todayData.outOfStockItems?.length > 0 || todayData.lowStockItems?.length > 0) && (
             <div style={{ marginBottom: 16 }}>
               {todayData.outOfStockItems?.length > 0 && (
@@ -605,13 +887,22 @@ const InventoryPage = () => {
             </div>
           )}
 
-          {/* Today usage table */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowStockTake(true)}>
+              📋 Do Stock Take Now
+            </button>
+          </div>
+
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Ingredient</th><th>Category</th><th>Opening Stock</th>
-                  <th>Used Today</th><th>Remaining</th><th>Status</th>
+                  <th>Ingredient</th>
+                  <th>Category</th>
+                  <th>System Stock</th>
+                  <th>Used Today</th>
+                  <th>Counted Today</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -619,8 +910,8 @@ const InventoryPage = () => {
                   <tr key={item._id}>
                     <td><span style={{ fontWeight: 600 }}>{item.name}</span></td>
                     <td style={{ fontSize: 12, color: 'var(--text3)' }}>{item.category}</td>
-                    <td style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--text3)' }}>
-                      {(item.currentStock + item.usedToday).toFixed(3)} {item.unit}
+                    <td style={{ fontFamily: 'DM Mono', fontWeight: 700, color: item.currentStock <= 0 ? 'var(--red)' : item.currentStock <= item.lowStockThreshold ? 'var(--amber)' : 'var(--green)' }}>
+                      {item.currentStock} {item.unit}
                     </td>
                     <td>
                       <span style={{ fontFamily: 'DM Mono', color: item.usedToday > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: item.usedToday > 0 ? 700 : 400 }}>
@@ -628,9 +919,10 @@ const InventoryPage = () => {
                       </span>
                     </td>
                     <td>
-                      <span style={{ fontFamily: 'DM Mono', fontWeight: 700, color: item.currentStock <= 0 ? 'var(--red)' : item.currentStock <= item.lowStockThreshold ? 'var(--amber)' : 'var(--green)' }}>
-                        {item.currentStock} {item.unit}
-                      </span>
+                      {item.stockTakeDoneToday
+                        ? <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600 }}>✅ Done</span>
+                        : <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Pending</span>
+                      }
                     </td>
                     <td><StockBadge status={item.stockStatus} /></td>
                   </tr>
@@ -641,7 +933,7 @@ const InventoryPage = () => {
         </>
       )}
 
-      {/* ===== REPORT TAB ===== */}
+      {/* ── REPORT TAB ─────────────────────────────────────────────────────── */}
       {activeTab === 'report' && (
         <>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
@@ -653,16 +945,98 @@ const InventoryPage = () => {
 
           {reportData && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
-                <div className="stat-card"><div className="stat-label">Total Items Tracked</div><div className="stat-value">{reportData.report?.length || 0}</div></div>
-                <div className="stat-card red"><div className="stat-label">Cost of Goods Consumed</div><div className="stat-value mono" style={{ fontSize: 20 }}>Rs. {parseFloat(reportData.summary?.totalCostConsumed || 0).toLocaleString()}</div></div>
-                <div className="stat-card green"><div className="stat-label">Most Used Item</div><div className="stat-value" style={{ fontSize: 18 }}>{reportData.summary?.mostUsed || 'N/A'}</div></div>
+              {/* Summary cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+                <div className="stat-card">
+                  <div className="stat-label">Total Items Tracked</div>
+                  <div className="stat-value">{reportData.report?.length || 0}</div>
+                </div>
+                <div className="stat-card red">
+                  <div className="stat-label">Cost of Goods Consumed</div>
+                  <div className="stat-value mono" style={{ fontSize: 20 }}>Rs. {parseFloat(reportData.summary?.totalCostConsumed || 0).toLocaleString()}</div>
+                </div>
+                {/* ── NEW: Shrinkage summary card ── */}
+                <div className="stat-card" style={{ borderColor: 'var(--amber)' }}>
+                  <div className="stat-label">Total Shrinkage (stock takes)</div>
+                  <div className="stat-value mono" style={{ fontSize: 20, color: 'var(--amber)' }}>
+                    {parseFloat(reportData.summary?.totalShrinkage || 0).toFixed(2)} units
+                  </div>
+                </div>
+                <div className="stat-card green">
+                  <div className="stat-label">Most Used Item</div>
+                  <div className="stat-value" style={{ fontSize: 18 }}>{reportData.summary?.mostUsed || 'N/A'}</div>
+                </div>
               </div>
 
+              {/* ── NEW: Shrinkage / Variance breakdown ─────────────────────── */}
+              {stockTakeHistory && stockTakeHistory.length > 0 && (
+                <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', marginBottom: 16 }}>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>📋</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>Shrinkage / Variance Report</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
+                        From physical stock takes. Negative variance = waste/theft/spillage. Normal is within −5%.
+                      </div>
+                    </div>
+                  </div>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Ingredient</th>
+                        <th>Stock Takes</th>
+                        <th>Avg Variance %</th>
+                        <th>Total Shrinkage</th>
+                        <th>Last Counted</th>
+                        <th>Health</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stockTakeHistory.map(item => (
+                        <tr key={item._id}>
+                          <td style={{ fontWeight: 600 }}>{item.name}</td>
+                          <td style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--text3)' }}>{item.takesCount}x</td>
+                          <td>
+                            <VarianceBadge pct={item.avgVariancePct} />
+                          </td>
+                          <td style={{ fontFamily: 'DM Mono', fontSize: 13, color: item.totalShrinkage > 0 ? 'var(--red)' : 'var(--text3)' }}>
+                            {item.totalShrinkage > 0 ? `−${item.totalShrinkage}` : '0'} {item.unit}
+                          </td>
+                          <td style={{ fontSize: 12, color: 'var(--text3)' }}>
+                            {item.lastTake?.date || '—'}
+                          </td>
+                          <td>
+                            <span style={{
+                              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12,
+                              background: item.shrinkageLevel === 'normal' ? 'rgba(76,175,136,0.15)' : item.shrinkageLevel === 'concerning' ? 'rgba(212,134,42,0.15)' : 'rgba(224,92,92,0.15)',
+                              color: item.shrinkageLevel === 'normal' ? 'var(--green)' : item.shrinkageLevel === 'concerning' ? 'var(--amber)' : 'var(--red)',
+                            }}>
+                              {item.shrinkageLevel === 'normal' ? '✅ Normal' : item.shrinkageLevel === 'concerning' ? '⚠️ Watch' : '🚨 Critical'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {/* ──────────────────────────────────────────────────────────── */}
+
+              {/* Usage report table */}
               <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 14 }}>📊 Usage & Consumption Report</div>
                 <table className="data-table">
                   <thead>
-                    <tr><th>Ingredient</th><th>Category</th><th>Total Used</th><th>Total Restocked</th><th>Cost Consumed</th><th>Remaining</th><th>Status</th></tr>
+                    <tr>
+                      <th>Ingredient</th>
+                      <th>Category</th>
+                      <th>Total Used</th>
+                      <th>Total Restocked</th>
+                      <th>Shrinkage</th>
+                      <th>Cost Consumed</th>
+                      <th>Remaining</th>
+                      <th>Status</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {(reportData.report || []).map(item => (
@@ -671,8 +1045,19 @@ const InventoryPage = () => {
                         <td style={{ fontSize: 12, color: 'var(--text3)' }}>{item.category}</td>
                         <td style={{ fontFamily: 'DM Mono', color: 'var(--red)' }}>{item.totalUsed} {item.unit}</td>
                         <td style={{ fontFamily: 'DM Mono', color: 'var(--green)' }}>{item.totalRestocked} {item.unit}</td>
+                        {/* ── NEW: shrinkage column ── */}
+                        <td style={{ fontFamily: 'DM Mono', color: item.totalShrinkage > 0 ? 'var(--amber)' : 'var(--text3)', fontSize: 12 }}>
+                          {item.totalShrinkage > 0 ? `−${item.totalShrinkage}` : '—'} {item.totalShrinkage > 0 ? item.unit : ''}
+                          {item.avgVariancePct !== null && (
+                            <div style={{ fontSize: 10, color: item.avgVariancePct < -5 ? 'var(--red)' : 'var(--text3)' }}>
+                              avg {item.avgVariancePct}%
+                            </div>
+                          )}
+                        </td>
                         <td style={{ fontFamily: 'DM Mono', color: 'var(--amber)' }}>Rs. {parseFloat(item.costConsumed).toLocaleString()}</td>
-                        <td style={{ fontFamily: 'DM Mono', fontWeight: 700, color: item.currentStock <= 0 ? 'var(--red)' : item.currentStock <= item.lowStockThreshold ? 'var(--amber)' : 'var(--green)' }}>{item.currentStock} {item.unit}</td>
+                        <td style={{ fontFamily: 'DM Mono', fontWeight: 700, color: item.currentStock <= 0 ? 'var(--red)' : item.currentStock <= item.lowStockThreshold ? 'var(--amber)' : 'var(--green)' }}>
+                          {item.currentStock} {item.unit}
+                        </td>
                         <td><StockBadge status={item.stockStatus} /></td>
                       </tr>
                     ))}
@@ -684,10 +1069,18 @@ const InventoryPage = () => {
         </>
       )}
 
-      {/* Modals */}
+      {/* ── Modals ─────────────────────────────────────────────────────────── */}
       {showAdd && <AddItemModal onClose={() => setShowAdd(false)} onSuccess={fetchAll} menuItems={menuItems} />}
       {restockItem && <RestockModal item={restockItem} onClose={() => setRestockItem(null)} onSuccess={fetchAll} />}
       {detailItem && <DetailModal item={detailItem} onClose={() => setDetailItem(null)} onSuccess={fetchAll} menuItems={menuItems} />}
+      {/* ── NEW ── */}
+      {showStockTake && (
+        <StockTakeModal
+          items={items}
+          onClose={() => setShowStockTake(false)}
+          onSuccess={fetchAll}
+        />
+      )}
 
       <style>{`
         .filter-chip {
