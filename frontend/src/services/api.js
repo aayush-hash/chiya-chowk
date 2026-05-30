@@ -2,7 +2,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-  baseURL: VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
