@@ -13,6 +13,7 @@ const {
 const { protect, authorize } = require('../middleware/auth');
 const { body } = require('express-validator');
 const { validate } = require('../middleware/validators');
+const Settings = require('../models/Settings');
 
 const placeOrderValidator = [
   body('customerName').trim().notEmpty().withMessage('Name is required').isLength({ min: 2, max: 100 }),
@@ -30,6 +31,15 @@ router.post('/order/:token', placeOrderValidator, placeQROrder);
 router.post('/order/:token/add-items', addItemsToQROrder);
 router.get('/track/:orderId', trackOrder);
 
+
+router.get('/settings', async (req, res, next) => {
+  try {
+    const settings = await Settings.findOne();
+    res.json({ success: true, settings });
+  } catch (err) {
+    next(err);
+  }
+});
 // ===== PRIVATE ROUTES (staff auth required) =====
 router.get('/tables', protect, authorize('admin', 'manager'), getTablesWithQR);
 router.post('/tables/:id/generate', protect, authorize('admin', 'manager'), generateQRToken);
