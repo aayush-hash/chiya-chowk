@@ -7,7 +7,7 @@
  *   loading → info (enter name) → menu → place order → tracking
  *
  * Table FREE, same tab (session saved after previous paid order)
- *   loading → info  (session cleared, always prompt for name)
+ *   loading → menu  (name already known, skip name screen)
  *
  * Table OCCUPIED (unpaid order exists)
  *   loading → existing → track  OR  → menu (add items to same order)
@@ -23,8 +23,9 @@
  * ──────────────────
  * The server checks paymentStatus:'unpaid' + orderStatus not in [completed,cancelled].
  * When staff marks bill paid → table is freed → next scan sees no existingOrder.
- * sessionStorage is cleared whenever the table is free so the next customer
- * always starts fresh with the name entry screen.
+ * sessionStorage preserves the customer name in the same browser tab so they
+ * never have to re-enter it within the same session. Clearing sessionStorage
+ * (or a new incognito tab) always starts fresh.
  */
 
 import axios from 'axios';
@@ -314,7 +315,7 @@ const QRMenuPage = () => {
    */
   const [trackedId, setTrackedId] = useState(null);
 
-  // ── Customer identity ─────────────────────────────────────────────────────
+  // ── Customer identity — never prompt again in the same session ────────────
   const [customerName,  setCustomerName ] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
@@ -356,13 +357,25 @@ const QRMenuPage = () => {
           saveSession(ex.customerName, ex.customerPhone);
           setPhase('existing');
         } else {
-          // TABLE FREE — always start fresh, clear any saved session
+          /**
+           * TABLE FREE — no unpaid order exists.
+           * Could be:
+           *   (a) Brand-new scan — show info (name entry).
+           *   (b) Same tab after previous order was paid — sessionStorage has name.
+           *       Skip info screen and go straight to menu.
+           * Either way: clear any stale activeOrder from a previous session.
+           */
           setActiveOrder(null);
           setTrackedId(null);
-          clearSession();           // ← clear name so next customer starts fresh
-          setCustomerName('');
-          setCustomerPhone('');
-          setPhase('info');         // ← always go to name entry screen
+          const saved = loadSession();
+          if (saved?.name) {
+            // Same browser tab — customer already identified
+            setCustomerName(saved.name);
+            setCustomerPhone(saved.phone || '');
+            setPhase('menu');
+          } else {
+            setPhase('info');
+          }
         }
       } catch (err) {
         setError(err.response?.data?.message || 'Invalid QR code. Please ask staff for help.');
