@@ -27,7 +27,7 @@ const tableSchema = new mongoose.Schema({
   },
   location: {
     type: String,
-    enum: ['indoor', 'outdoor', 'balcony', 'vip'],
+    enum: ['Garden', 'Hall', 'Cabin'],
     default: 'indoor',
   },
   reservedFor: {
