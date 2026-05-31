@@ -336,12 +336,55 @@ const QRMenuPage = () => {
     const load = async () => {
       try {
         const { data } = await api.get(`/qr/scan/${token}`);
-        setTableInfo(data.table ?? null);
-        setMenu(data.menu ?? {});
-        const cats = data.categories ?? [];
-        setCategories(cats);
+        console.log('[QR] raw scan response:', JSON.stringify(data, null, 2));
+
+        // ── Normalise table ──────────────────────────────────────────────────
+        // Backend may return data.table or data.tableInfo; number field may be
+        // called number, tableNumber, or no. Accept all shapes.
+        const rawTable = data.table ?? data.tableInfo ?? {};
+        const tableNorm = {
+          number:   rawTable.number ?? rawTable.tableNumber ?? rawTable.no ?? rawTable._id ?? '?',
+          seats:    rawTable.seats  ?? rawTable.capacity ?? '—',
+          location: rawTable.location ?? rawTable.zone ?? rawTable.area ?? '—',
+          ...rawTable,
+        };
+        setTableInfo(tableNorm);
+
+        // ── Normalise menu ───────────────────────────────────────────────────
+        // Backend may return:
+        //   (a) data.menu = { "Tea": [...], "Coffee": [...] }  ← expected shape
+        //   (b) data.menuItems = [...flat array with .category field]
+        //   (c) data.items = [...flat array with .category field]
+        let menuNorm = {};
+        let catsNorm = [];
+
+        const rawMenu = data.menu ?? data.menuItems ?? data.items ?? null;
+        if (rawMenu && !Array.isArray(rawMenu)) {
+          // Shape (a): already a category → items map
+          menuNorm = rawMenu;
+          catsNorm = data.categories ?? Object.keys(rawMenu);
+        } else if (Array.isArray(rawMenu)) {
+          // Shape (b/c): flat array — group by .category
+          rawMenu.forEach(item => {
+            const cat = item.category ?? item.categoryName ?? 'Menu';
+            if (!menuNorm[cat]) menuNorm[cat] = [];
+            menuNorm[cat].push(item);
+          });
+          catsNorm = data.categories ?? Object.keys(menuNorm);
+        } else {
+          // Fallback: empty
+          menuNorm = {};
+          catsNorm = data.categories ?? [];
+        }
+
+        console.log('[QR] normalised table:', tableNorm);
+        console.log('[QR] normalised categories:', catsNorm);
+        console.log('[QR] normalised menu keys:', Object.keys(menuNorm));
+
+        setMenu(menuNorm);
+        setCategories(catsNorm);
         setSettings(data.settings ?? {});
-        setActiveCategory(cats[0] ?? '');
+        setActiveCategory(catsNorm[0] ?? '');
 
         if (data.existingOrder) {
           /**
