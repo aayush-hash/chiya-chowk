@@ -28,7 +28,7 @@ const tableSchema = new mongoose.Schema({
   location: {
     type: String,
     enum: ['Garden', 'Hall', 'Cabin'],
-    default: 'indoor',
+    default: 'Hall',
   },
   reservedFor: {
     name: { type: String, trim: true },
