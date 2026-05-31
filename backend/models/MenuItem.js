@@ -13,7 +13,7 @@ const menuItemSchema = new mongoose.Schema({
    enum: [
   'Tea', 'Coffee', 'Tea Alternatives', 'Lassi', 'Hookah',
   'Veg Snacks', 'Non-Veg Snacks', 'Breakfast', 'Sandwich',
-  'Burger', 'Fried Rice', 'Chowmein', 'Momo', 'Other',
+  'Burger', 'Fried Rice', 'Chowmein', 'Momo','Cigarettes', 'Other',
 ],
   },
   price: {
