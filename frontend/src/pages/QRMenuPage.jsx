@@ -336,11 +336,12 @@ const QRMenuPage = () => {
     const load = async () => {
       try {
         const { data } = await api.get(`/qr/scan/${token}`);
-        setTableInfo(data.table);
-        setMenu(data.menu);
-        setCategories(data.categories);
+        setTableInfo(data.table ?? null);
+        setMenu(data.menu ?? {});
+        const cats = data.categories ?? [];
+        setCategories(cats);
         setSettings(data.settings ?? {});
-        setActiveCategory(data.categories[0] || '');
+        setActiveCategory(cats[0] ?? '');
 
         if (data.existingOrder) {
           /**
@@ -486,7 +487,7 @@ const QRMenuPage = () => {
 
   // ─── Filtered items for current view ──────────────────────────────────────
   const visibleItems = search
-    ? Object.values(menu).flat().filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
+    ? Object.values(menu ?? {}).flat().filter(i => i.name?.toLowerCase().includes(search.toLowerCase()))
     : (menu[activeCategory] || []);
 
   // ══════════════════════════════════════════════════════════════════════════
