@@ -7,7 +7,7 @@
  *   loading → info (enter name) → menu → place order → tracking
  *
  * Table FREE, same tab (session saved after previous paid order)
- *   loading → menu  (name already known, skip name screen)
+ *   loading → info  (session cleared, always prompt for name)
  *
  * Table OCCUPIED (unpaid order exists)
  *   loading → existing → track  OR  → menu (add items to same order)
@@ -23,9 +23,8 @@
  * ──────────────────
  * The server checks paymentStatus:'unpaid' + orderStatus not in [completed,cancelled].
  * When staff marks bill paid → table is freed → next scan sees no existingOrder.
- * sessionStorage preserves the customer name in the same browser tab so they
- * never have to re-enter it within the same session. Clearing sessionStorage
- * (or a new incognito tab) always starts fresh.
+ * sessionStorage is cleared whenever the table is free so the next customer
+ * always starts fresh with the name entry screen.
  */
 
 import axios from 'axios';
@@ -297,7 +296,7 @@ const QRMenuPage = () => {
   const [tableInfo,  setTableInfo ] = useState(null);
   const [menu,       setMenu      ] = useState({});
   const [categories, setCategories] = useState([]);
-  const [settings,   setSettings  ] = useState({});
+  const [settings,   setSettings  ] = useState(Object.create(null));
   const [error,      setError     ] = useState('');
 
   /**
@@ -315,7 +314,7 @@ const QRMenuPage = () => {
    */
   const [trackedId, setTrackedId] = useState(null);
 
-  // ── Customer identity — never prompt again in the same session ────────────
+  // ── Customer identity ─────────────────────────────────────────────────────
   const [customerName,  setCustomerName ] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
@@ -340,7 +339,7 @@ const QRMenuPage = () => {
         setTableInfo(data.table);
         setMenu(data.menu);
         setCategories(data.categories);
-        setSettings(data.settings);
+        setSettings(data.settings ?? {});
         setActiveCategory(data.categories[0] || '');
 
         if (data.existingOrder) {
@@ -357,25 +356,13 @@ const QRMenuPage = () => {
           saveSession(ex.customerName, ex.customerPhone);
           setPhase('existing');
         } else {
-          /**
-           * TABLE FREE — no unpaid order exists.
-           * Could be:
-           *   (a) Brand-new scan — show info (name entry).
-           *   (b) Same tab after previous order was paid — sessionStorage has name.
-           *       Skip info screen and go straight to menu.
-           * Either way: clear any stale activeOrder from a previous session.
-           */
+          // TABLE FREE — always start fresh, clear any saved session
           setActiveOrder(null);
           setTrackedId(null);
-          const saved = loadSession();
-          if (saved?.name) {
-            // Same browser tab — customer already identified
-            setCustomerName(saved.name);
-            setCustomerPhone(saved.phone || '');
-            setPhase('menu');
-          } else {
-            setPhase('info');
-          }
+          clearSession();           // ← clear name so next customer starts fresh
+          setCustomerName('');
+          setCustomerPhone('');
+          setPhase('info');         // ← always go to name entry screen
         }
       } catch (err) {
         setError(err.response?.data?.message || 'Invalid QR code. Please ask staff for help.');
@@ -403,7 +390,7 @@ const QRMenuPage = () => {
   const cartQty       = (id) => cart.find(c => c.menuItem === id)?.qty || 0;
   const cartTotal     = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const cartCount     = cart.reduce((s, c) => s + c.qty, 0);
-  const serviceRate   = settings.enableServiceCharge ? (settings.serviceChargeRate || 0) : 0;
+  const serviceRate   = (settings ?? {}).enableServiceCharge ? (settings.serviceChargeRate || 0) : 0;
   const serviceCharge = Math.round(cartTotal * serviceRate / 100);
   const grandTotal    = cartTotal + serviceCharge;
 
