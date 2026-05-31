@@ -32,7 +32,10 @@ import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-const api = axios.create({ baseURL: '/api', timeout: 15000 });
+const api = axios.create({ 
+  baseURL: `${import.meta.env.VITE_API_URL}`,
+  timeout: 15000 
+});
 
 // ─── sessionStorage: remember customer name across orders ─────────────────────
 const SK = 'chiya_session';
