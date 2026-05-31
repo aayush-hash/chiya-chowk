@@ -7,7 +7,7 @@
  *   loading → info (enter name) → menu → place order → tracking
  *
  * Table FREE, same tab (session saved after previous paid order)
- *   loading → menu  (name already known, skip name screen)
+ *   loading → info  (session cleared, always prompt for name)
  *
  * Table OCCUPIED (unpaid order exists)
  *   loading → existing → track  OR  → menu (add items to same order)
@@ -23,19 +23,15 @@
  * ──────────────────
  * The server checks paymentStatus:'unpaid' + orderStatus not in [completed,cancelled].
  * When staff marks bill paid → table is freed → next scan sees no existingOrder.
- * sessionStorage preserves the customer name in the same browser tab so they
- * never have to re-enter it within the same session. Clearing sessionStorage
- * (or a new incognito tab) always starts fresh.
+ * sessionStorage is cleared whenever the table is free so the next customer
+ * always starts fresh with the name entry screen.
  */
 
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-const api = axios.create({ 
-  baseURL: `${import.meta.env.VITE_API_URL}`,
-  timeout: 15000 
-});
+const api = axios.create({ baseURL: '/api', timeout: 15000 });
 
 // ─── sessionStorage: remember customer name across orders ─────────────────────
 const SK = 'chiya_session';
@@ -318,7 +314,7 @@ const QRMenuPage = () => {
    */
   const [trackedId, setTrackedId] = useState(null);
 
-  // ── Customer identity — never prompt again in the same session ────────────
+  // ── Customer identity ─────────────────────────────────────────────────────
   const [customerName,  setCustomerName ] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
@@ -360,25 +356,13 @@ const QRMenuPage = () => {
           saveSession(ex.customerName, ex.customerPhone);
           setPhase('existing');
         } else {
-          /**
-           * TABLE FREE — no unpaid order exists.
-           * Could be:
-           *   (a) Brand-new scan — show info (name entry).
-           *   (b) Same tab after previous order was paid — sessionStorage has name.
-           *       Skip info screen and go straight to menu.
-           * Either way: clear any stale activeOrder from a previous session.
-           */
+          // TABLE FREE — always start fresh, clear any saved session
           setActiveOrder(null);
           setTrackedId(null);
-          const saved = loadSession();
-          if (saved?.name) {
-            // Same browser tab — customer already identified
-            setCustomerName(saved.name);
-            setCustomerPhone(saved.phone || '');
-            setPhase('menu');
-          } else {
-            setPhase('info');
-          }
+          clearSession();           // ← clear name so next customer starts fresh
+          setCustomerName('');
+          setCustomerPhone('');
+          setPhase('info');         // ← always go to name entry screen
         }
       } catch (err) {
         setError(err.response?.data?.message || 'Invalid QR code. Please ask staff for help.');
