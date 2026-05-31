@@ -280,7 +280,7 @@ const EditTableModal = ({ table, onClose, onSuccess }) => {
           <div className="form-group">
             <label className="form-label">Location</label>
             <select className="form-control" value={location} onChange={e => setLocation(e.target.value)}>
-              {['indoor', 'outdoor', 'balcony', 'vip'].map(l => (
+              {['Garden', 'Hall', 'Cabin'].map(l => (
                 <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
               ))}
             </select>
