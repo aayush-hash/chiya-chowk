@@ -7,7 +7,7 @@
  *   loading → info (enter name) → menu → place order → tracking
  *
  * Table FREE, same tab (session saved after previous paid order)
- *   loading → info  (session cleared, always prompt for name)
+ *   loading → menu  (name already known, skip name screen)
  *
  * Table OCCUPIED (unpaid order exists)
  *   loading → existing → track  OR  → menu (add items to same order)
@@ -23,8 +23,9 @@
  * ──────────────────
  * The server checks paymentStatus:'unpaid' + orderStatus not in [completed,cancelled].
  * When staff marks bill paid → table is freed → next scan sees no existingOrder.
- * sessionStorage is cleared whenever the table is free so the next customer
- * always starts fresh with the name entry screen.
+ * sessionStorage preserves the customer name in the same browser tab so they
+ * never have to re-enter it within the same session. Clearing sessionStorage
+ * (or a new incognito tab) always starts fresh.
  */
 
 import axios from 'axios';
@@ -296,7 +297,7 @@ const QRMenuPage = () => {
   const [tableInfo,  setTableInfo ] = useState(null);
   const [menu,       setMenu      ] = useState({});
   const [categories, setCategories] = useState([]);
-  const [settings,   setSettings  ] = useState(Object.create(null));
+  const [settings,   setSettings  ] = useState({});
   const [error,      setError     ] = useState('');
 
   /**
@@ -314,7 +315,7 @@ const QRMenuPage = () => {
    */
   const [trackedId, setTrackedId] = useState(null);
 
-  // ── Customer identity ─────────────────────────────────────────────────────
+  // ── Customer identity — never prompt again in the same session ────────────
   const [customerName,  setCustomerName ] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
@@ -336,55 +337,11 @@ const QRMenuPage = () => {
     const load = async () => {
       try {
         const { data } = await api.get(`/qr/scan/${token}`);
-        console.log('[QR] raw scan response:', JSON.stringify(data, null, 2));
-
-        // ── Normalise table ──────────────────────────────────────────────────
-        // Backend may return data.table or data.tableInfo; number field may be
-        // called number, tableNumber, or no. Accept all shapes.
-        const rawTable = data.table ?? data.tableInfo ?? {};
-        const tableNorm = {
-          number:   rawTable.number ?? rawTable.tableNumber ?? rawTable.no ?? rawTable._id ?? '?',
-          seats:    rawTable.seats  ?? rawTable.capacity ?? '—',
-          location: rawTable.location ?? rawTable.zone ?? rawTable.area ?? '—',
-          ...rawTable,
-        };
-        setTableInfo(tableNorm);
-
-        // ── Normalise menu ───────────────────────────────────────────────────
-        // Backend may return:
-        //   (a) data.menu = { "Tea": [...], "Coffee": [...] }  ← expected shape
-        //   (b) data.menuItems = [...flat array with .category field]
-        //   (c) data.items = [...flat array with .category field]
-        let menuNorm = {};
-        let catsNorm = [];
-
-        const rawMenu = data.menu ?? data.menuItems ?? data.items ?? null;
-        if (rawMenu && !Array.isArray(rawMenu)) {
-          // Shape (a): already a category → items map
-          menuNorm = rawMenu;
-          catsNorm = data.categories ?? Object.keys(rawMenu);
-        } else if (Array.isArray(rawMenu)) {
-          // Shape (b/c): flat array — group by .category
-          rawMenu.forEach(item => {
-            const cat = item.category ?? item.categoryName ?? 'Menu';
-            if (!menuNorm[cat]) menuNorm[cat] = [];
-            menuNorm[cat].push(item);
-          });
-          catsNorm = data.categories ?? Object.keys(menuNorm);
-        } else {
-          // Fallback: empty
-          menuNorm = {};
-          catsNorm = data.categories ?? [];
-        }
-
-        console.log('[QR] normalised table:', tableNorm);
-        console.log('[QR] normalised categories:', catsNorm);
-        console.log('[QR] normalised menu keys:', Object.keys(menuNorm));
-
-        setMenu(menuNorm);
-        setCategories(catsNorm);
-        setSettings(data.settings ?? {});
-        setActiveCategory(catsNorm[0] ?? '');
+        setTableInfo(data.table);
+        setMenu(data.menu);
+        setCategories(data.categories);
+        setSettings(data.settings);
+        setActiveCategory(data.categories[0] || '');
 
         if (data.existingOrder) {
           /**
@@ -400,13 +357,25 @@ const QRMenuPage = () => {
           saveSession(ex.customerName, ex.customerPhone);
           setPhase('existing');
         } else {
-          // TABLE FREE — always start fresh, clear any saved session
+          /**
+           * TABLE FREE — no unpaid order exists.
+           * Could be:
+           *   (a) Brand-new scan — show info (name entry).
+           *   (b) Same tab after previous order was paid — sessionStorage has name.
+           *       Skip info screen and go straight to menu.
+           * Either way: clear any stale activeOrder from a previous session.
+           */
           setActiveOrder(null);
           setTrackedId(null);
-          clearSession();           // ← clear name so next customer starts fresh
-          setCustomerName('');
-          setCustomerPhone('');
-          setPhase('info');         // ← always go to name entry screen
+          const saved = loadSession();
+          if (saved?.name) {
+            // Same browser tab — customer already identified
+            setCustomerName(saved.name);
+            setCustomerPhone(saved.phone || '');
+            setPhase('menu');
+          } else {
+            setPhase('info');
+          }
         }
       } catch (err) {
         setError(err.response?.data?.message || 'Invalid QR code. Please ask staff for help.');
@@ -434,7 +403,7 @@ const QRMenuPage = () => {
   const cartQty       = (id) => cart.find(c => c.menuItem === id)?.qty || 0;
   const cartTotal     = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const cartCount     = cart.reduce((s, c) => s + c.qty, 0);
-  const serviceRate   = (settings ?? {}).enableServiceCharge ? (settings.serviceChargeRate || 0) : 0;
+  const serviceRate   = settings.enableServiceCharge ? (settings.serviceChargeRate || 0) : 0;
   const serviceCharge = Math.round(cartTotal * serviceRate / 100);
   const grandTotal    = cartTotal + serviceCharge;
 
@@ -530,7 +499,7 @@ const QRMenuPage = () => {
 
   // ─── Filtered items for current view ──────────────────────────────────────
   const visibleItems = search
-    ? Object.values(menu ?? {}).flat().filter(i => i.name?.toLowerCase().includes(search.toLowerCase()))
+    ? Object.values(menu).flat().filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
     : (menu[activeCategory] || []);
 
   // ══════════════════════════════════════════════════════════════════════════
